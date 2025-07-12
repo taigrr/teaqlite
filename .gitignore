@@ -1,0 +1,3 @@
+go-sqlite-tui
+.crush/
+*.db
