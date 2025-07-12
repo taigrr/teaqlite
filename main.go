@@ -18,14 +18,16 @@ const (
 
 // Custom message types
 type (
-	switchToTableListMsg struct{}
-	switchToTableDataMsg struct{ tableIndex int }
-	switchToRowDetailMsg struct{ rowIndex int }
-	switchToEditCellMsg  struct{ rowIndex, colIndex int }
-	switchToQueryMsg     struct{}
-	refreshDataMsg       struct{}
-	updateCellMsg        struct{ rowIndex, colIndex int; value string }
-	executeQueryMsg      struct{ query string }
+	switchToTableListMsg    struct{}
+	switchToTableDataMsg    struct{ tableIndex int }
+	switchToRowDetailMsg    struct{ rowIndex int }
+	switchToRowDetailFromQueryMsg struct{ rowIndex int }
+	switchToEditCellMsg     struct{ rowIndex, colIndex int }
+	switchToQueryMsg        struct{}
+	returnToQueryMsg        struct{} // Return to query mode from row detail
+	refreshDataMsg          struct{}
+	updateCellMsg           struct{ rowIndex, colIndex int; value string }
+	executeQueryMsg         struct{ query string }
 )
 
 // Common interface for all models
@@ -378,12 +380,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentView = newRowDetailModel(m.getSharedData(), msg.rowIndex)
 		return m, nil
 
+	case switchToRowDetailFromQueryMsg:
+		rowDetail := newRowDetailModel(m.getSharedData(), msg.rowIndex)
+		rowDetail.fromQuery = true
+		m.currentView = rowDetail
+		return m, nil
+
 	case switchToEditCellMsg:
 		m.currentView = newEditCellModel(m.getSharedData(), msg.rowIndex, msg.colIndex)
 		return m, nil
 
 	case switchToQueryMsg:
 		m.currentView = newQueryModel(m.getSharedData())
+		return m, nil
+
+	case returnToQueryMsg:
+		// Return to query mode, preserving the query state if possible
+		if queryView, ok := m.currentView.(*queryModel); ok {
+			// If we're already in query mode, just switch focus back to results
+			queryView.focusOnInput = false
+		} else {
+			// Create new query model
+			m.currentView = newQueryModel(m.getSharedData())
+		}
 		return m, nil
 
 	case refreshDataMsg:

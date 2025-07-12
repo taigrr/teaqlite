@@ -9,16 +9,20 @@ import (
 
 // Query Model
 type queryModel struct {
-	shared      *sharedData
-	queryInput  string
-	cursorPos   int
-	results     [][]string
-	columns     []string
+	shared       *sharedData
+	queryInput   string
+	cursorPos    int
+	results      [][]string
+	columns      []string
+	focusOnInput bool // true = input focused, false = results focused
+	selectedRow  int
 }
 
 func newQueryModel(shared *sharedData) *queryModel {
 	return &queryModel{
-		shared: shared,
+		shared:       shared,
+		focusOnInput: true, // Start with input focused
+		selectedRow:  0,
 	}
 }
 
@@ -39,11 +43,47 @@ func (m *queryModel) handleInput(msg tea.KeyMsg) (subModel, tea.Cmd) {
 	case "esc":
 		return m, func() tea.Msg { return switchToTableListMsg{} }
 
-	case "enter":
-		if err := m.executeQuery(); err != nil {
-			// Handle error - could set an error field
+	case "tab":
+		// Switch focus between input and results
+		if len(m.results) > 0 {
+			m.focusOnInput = !m.focusOnInput
+			if !m.focusOnInput {
+				// Reset row selection when switching to results
+				m.selectedRow = 0
+			}
 		}
+		return m, nil
 
+	case "enter":
+		if m.focusOnInput {
+			// Execute query when input is focused
+			if err := m.executeQuery(); err != nil {
+				// Handle error - could set an error field
+			}
+		} else {
+			// View row detail when results are focused
+			if len(m.results) > 0 && m.selectedRow < len(m.results) {
+				// Convert query results to shared data format for row detail view
+				m.shared.filteredData = m.results
+				m.shared.columns = m.columns
+				return m, func() tea.Msg {
+					return switchToRowDetailFromQueryMsg{rowIndex: m.selectedRow}
+				}
+			}
+		}
+		return m, nil
+	}
+
+	// Handle input-specific controls
+	if m.focusOnInput {
+		return m.handleInputControls(msg)
+	} else {
+		return m.handleResultsNavigation(msg)
+	}
+}
+
+func (m *queryModel) handleInputControls(msg tea.KeyMsg) (subModel, tea.Cmd) {
+	switch msg.String() {
 	// Cursor movement
 	case "left":
 		if m.cursorPos > 0 {
@@ -100,6 +140,36 @@ func (m *queryModel) handleInput(msg tea.KeyMsg) (subModel, tea.Cmd) {
 			m.queryInput = m.queryInput[:m.cursorPos] + msg.String() + m.queryInput[m.cursorPos:]
 			m.cursorPos++
 		}
+	}
+	return m, nil
+}
+
+func (m *queryModel) handleResultsNavigation(msg tea.KeyMsg) (subModel, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		if m.selectedRow > 0 {
+			m.selectedRow--
+		}
+
+	case "down", "j":
+		if m.selectedRow < len(m.results)-1 {
+			m.selectedRow++
+		}
+
+	case "home":
+		m.selectedRow = 0
+
+	case "end":
+		if len(m.results) > 0 {
+			m.selectedRow = len(m.results) - 1
+		}
+
+	// Page navigation
+	case "page_up":
+		m.selectedRow = max(0, m.selectedRow-10)
+
+	case "page_down":
+		m.selectedRow = min(len(m.results)-1, m.selectedRow+10)
 	}
 	return m, nil
 }
@@ -188,6 +258,11 @@ func (m *queryModel) executeQuery() error {
 		m.results = append(m.results, row)
 	}
 
+	// Reset selection when new results are loaded
+	m.selectedRow = 0
+	// Keep focus on input after executing query
+	m.focusOnInput = true
+
 	return nil
 }
 
@@ -202,23 +277,40 @@ func (m *queryModel) View() string {
 	content.WriteString(titleStyle.Render("SQL Query"))
 	content.WriteString("\n\n")
 	
-	// Display query with cursor
-	content.WriteString("Query: ")
-	if m.cursorPos <= len(m.queryInput) {
-		before := m.queryInput[:m.cursorPos]
-		after := m.queryInput[m.cursorPos:]
-		content.WriteString(before)
-		content.WriteString("█") // Block cursor
-		content.WriteString(after)
+	// Display query with cursor and focus indicator
+	if m.focusOnInput {
+		content.WriteString("Query: ")
+	} else {
+		content.WriteString(helpStyle.Render("Query: "))
+	}
+	
+	if m.focusOnInput {
+		if m.cursorPos <= len(m.queryInput) {
+			before := m.queryInput[:m.cursorPos]
+			after := m.queryInput[m.cursorPos:]
+			content.WriteString(before)
+			content.WriteString("█") // Block cursor
+			content.WriteString(after)
+		} else {
+			content.WriteString(m.queryInput)
+			content.WriteString("█")
+		}
 	} else {
 		content.WriteString(m.queryInput)
-		content.WriteString("█")
 	}
 	content.WriteString("\n\n")
 
 	if len(m.results) > 0 {
+		// Show results header with focus indicator
+		if !m.focusOnInput {
+			content.WriteString(titleStyle.Render("Results (focused)"))
+		} else {
+			content.WriteString(helpStyle.Render("Results"))
+		}
+		content.WriteString("\n")
+		
 		// Limit rows to fit screen
-		visibleRows := m.getVisibleRowCount()
+		visibleRows := m.getVisibleRowCount() - 2 // Account for results header
 		displayRows := min(len(m.results), visibleRows)
 		
 		// Show query results
@@ -256,7 +348,13 @@ func (m *queryModel) View() string {
 				}
 				dataRow.WriteString(fmt.Sprintf("%-*s", colWidth, truncateString(cell, colWidth)))
 			}
-			content.WriteString(normalStyle.Render(dataRow.String()))
+			
+			// Highlight selected row when results are focused
+			if !m.focusOnInput && i == m.selectedRow {
+				content.WriteString(selectedStyle.Render(dataRow.String()))
+			} else {
+				content.WriteString(normalStyle.Render(dataRow.String()))
+			}
 			content.WriteString("\n")
 		}
 		
@@ -267,7 +365,11 @@ func (m *queryModel) View() string {
 	}
 
 	content.WriteString("\n")
-	content.WriteString(helpStyle.Render("enter: execute • ←/→: move cursor • ctrl+←/→: word nav • home/end: line nav • ctrl+w/k/u: delete • esc: back"))
+	if m.focusOnInput {
+		content.WriteString(helpStyle.Render("enter: execute • tab: focus results • ←/→: cursor • ctrl+←/→: word nav • home/end: line nav • esc: back"))
+	} else {
+		content.WriteString(helpStyle.Render("↑/↓: select row • enter: view row • tab: focus input • esc: back"))
+	}
 
 	return content.String()
 }

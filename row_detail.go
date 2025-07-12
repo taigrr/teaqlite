@@ -12,6 +12,7 @@ type rowDetailModel struct {
 	shared      *sharedData
 	rowIndex    int
 	selectedCol int
+	fromQuery   bool // true if came from query results
 }
 
 func newRowDetailModel(shared *sharedData, rowIndex int) *rowDetailModel {
@@ -19,6 +20,7 @@ func newRowDetailModel(shared *sharedData, rowIndex int) *rowDetailModel {
 		shared:      shared,
 		rowIndex:    rowIndex,
 		selectedCol: 0,
+		fromQuery:   false, // default to false, will be set by caller if needed
 	}
 }
 
@@ -37,8 +39,12 @@ func (m *rowDetailModel) Update(msg tea.Msg) (subModel, tea.Cmd) {
 func (m *rowDetailModel) handleNavigation(msg tea.KeyMsg) (subModel, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
-		return m, func() tea.Msg {
-			return switchToTableDataMsg{tableIndex: m.shared.selectedTable}
+		if m.fromQuery {
+			return m, func() tea.Msg { return returnToQueryMsg{} }
+		} else {
+			return m, func() tea.Msg {
+				return switchToTableDataMsg{tableIndex: m.shared.selectedTable}
+			}
 		}
 
 	case "enter":

@@ -73,11 +73,18 @@ go run main.go sample.db
 
 ### SQL Query Mode
 - **Advanced Text Editing**: Full readline-style editing controls
-- **Cursor Movement**: `←/→` arrows, `Ctrl+←/→` for word navigation  
-- **Line Navigation**: `Home`/`Ctrl+A` (start), `End`/`Ctrl+E` (end)
-- **Deletion**: `Backspace`, `Delete`/`Ctrl+D`, `Ctrl+W` (word), `Ctrl+K` (to end), `Ctrl+U` (to start)
+- **Dual Focus Mode**: Switch between query input and results with `Tab`
+- **Query Input Focus**:
+  - **Cursor Movement**: `←/→` arrows, `Ctrl+←/→` for word navigation  
+  - **Line Navigation**: `Home`/`Ctrl+A` (start), `End`/`Ctrl+E` (end)
+  - **Deletion**: `Backspace`, `Delete`/`Ctrl+D`, `Ctrl+W` (word), `Ctrl+K` (to end), `Ctrl+U` (to start)
+  - `Enter`: Execute query
+  - `Tab`: Switch focus to results (when available)
+- **Results Focus**:
+  - `↑/↓` or `k/j`: Navigate between result rows
+  - `Enter`: View selected row in detail modal
+  - `Tab`: Switch focus back to query input
 - Type your SQL query (all keys work as input, no conflicts with navigation)
-- `Enter`: Execute query
 - `Esc`: Return to table list
 - `q` or `Ctrl+C`: Quit
 
@@ -94,12 +101,13 @@ go run main.go sample.db
 9. **Text Wrapping**: Long values are automatically wrapped in edit and detail views
 10. **Primary Key Detection**: Uses primary keys for reliable row updates
 11. **Screen-Aware Display**: Content automatically fits terminal size
-12. **SQL Query Execution**: Execute custom SQL queries with advanced text editing
-13. **Error Handling**: Displays database errors gracefully
-14. **Responsive UI**: Clean, styled interface that adapts to terminal size
-15. **Column Information**: Shows column names and handles NULL values
-16. **Navigation**: Intuitive keyboard shortcuts for all operations
-17. **Dynamic Column Width**: Columns adjust to terminal width
+12. **SQL Query Execution**: Execute custom SQL queries with advanced text editing and dual-focus mode
+13. **Query Results Navigation**: Navigate and interact with query results just like table data
+14. **Error Handling**: Displays database errors gracefully
+15. **Responsive UI**: Clean, styled interface that adapts to terminal size
+16. **Column Information**: Shows column names and handles NULL values
+17. **Navigation**: Intuitive keyboard shortcuts for all operations
+18. **Dynamic Column Width**: Columns adjust to terminal width
 
 ## Navigation Flow
 
