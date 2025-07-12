@@ -14,6 +14,7 @@ type editCellModel struct {
 	colIndex      int
 	editingValue  string
 	originalValue string
+	cursorPos     int
 }
 
 func newEditCellModel(shared *sharedData, rowIndex, colIndex int) *editCellModel {
@@ -28,6 +29,7 @@ func newEditCellModel(shared *sharedData, rowIndex, colIndex int) *editCellModel
 		colIndex:      colIndex,
 		editingValue:  originalValue,
 		originalValue: originalValue,
+		cursorPos:     len(originalValue), // Start cursor at end
 	}
 }
 
@@ -59,17 +61,102 @@ func (m *editCellModel) handleInput(msg tea.KeyMsg) (subModel, tea.Cmd) {
 			}
 		}
 
-	case "backspace":
-		if len(m.editingValue) > 0 {
-			m.editingValue = m.editingValue[:len(m.editingValue)-1]
+	// Cursor movement
+	case "left":
+		if m.cursorPos > 0 {
+			m.cursorPos--
 		}
 
+	case "right":
+		if m.cursorPos < len(m.editingValue) {
+			m.cursorPos++
+		}
+
+	case "ctrl+left":
+		m.cursorPos = m.wordLeft(m.cursorPos)
+
+	case "ctrl+right":
+		m.cursorPos = m.wordRight(m.cursorPos)
+
+	case "home", "ctrl+a":
+		m.cursorPos = 0
+
+	case "end", "ctrl+e":
+		m.cursorPos = len(m.editingValue)
+
+	// Deletion
+	case "backspace":
+		if m.cursorPos > 0 {
+			m.editingValue = m.editingValue[:m.cursorPos-1] + m.editingValue[m.cursorPos:]
+			m.cursorPos--
+		}
+
+	case "delete", "ctrl+d":
+		if m.cursorPos < len(m.editingValue) {
+			m.editingValue = m.editingValue[:m.cursorPos] + m.editingValue[m.cursorPos+1:]
+		}
+
+	case "ctrl+w":
+		// Delete word backward
+		newPos := m.wordLeft(m.cursorPos)
+		m.editingValue = m.editingValue[:newPos] + m.editingValue[m.cursorPos:]
+		m.cursorPos = newPos
+
+	case "ctrl+k":
+		// Delete from cursor to end of line
+		m.editingValue = m.editingValue[:m.cursorPos]
+
+	case "ctrl+u":
+		// Delete from beginning of line to cursor
+		m.editingValue = m.editingValue[m.cursorPos:]
+		m.cursorPos = 0
+
 	default:
+		// Insert character at cursor position
 		if len(msg.String()) == 1 {
-			m.editingValue += msg.String()
+			m.editingValue = m.editingValue[:m.cursorPos] + msg.String() + m.editingValue[m.cursorPos:]
+			m.cursorPos++
 		}
 	}
 	return m, nil
+}
+
+// Helper functions for word navigation (same as query model)
+func (m *editCellModel) wordLeft(pos int) int {
+	if pos == 0 {
+		return 0
+	}
+	
+	// Skip whitespace
+	for pos > 0 && isWhitespace(m.editingValue[pos-1]) {
+		pos--
+	}
+	
+	// Skip non-whitespace
+	for pos > 0 && !isWhitespace(m.editingValue[pos-1]) {
+		pos--
+	}
+	
+	return pos
+}
+
+func (m *editCellModel) wordRight(pos int) int {
+	length := len(m.editingValue)
+	if pos >= length {
+		return length
+	}
+	
+	// Skip non-whitespace
+	for pos < length && !isWhitespace(m.editingValue[pos]) {
+		pos++
+	}
+	
+	// Skip whitespace
+	for pos < length && isWhitespace(m.editingValue[pos]) {
+		pos++
+	}
+	
+	return pos
 }
 
 func (m *editCellModel) View() string {
@@ -98,17 +185,28 @@ func (m *editCellModel) View() string {
 	
 	content.WriteString("\n")
 	
-	// Wrap new value
+	// Wrap new value with cursor
 	content.WriteString("New:")
 	content.WriteString("\n")
-	newLines := wrapText(m.editingValue+"_", textWidth) // Add cursor
+	
+	// Display editing value with cursor
+	valueWithCursor := ""
+	if m.cursorPos <= len(m.editingValue) {
+		before := m.editingValue[:m.cursorPos]
+		after := m.editingValue[m.cursorPos:]
+		valueWithCursor = before + "█" + after
+	} else {
+		valueWithCursor = m.editingValue + "█"
+	}
+	
+	newLines := wrapText(valueWithCursor, textWidth)
 	for _, line := range newLines {
 		content.WriteString("  " + line)
 		content.WriteString("\n")
 	}
 	
 	content.WriteString("\n")
-	content.WriteString(helpStyle.Render("Type new value • enter: save • esc: cancel"))
+	content.WriteString(helpStyle.Render("←/→: move cursor • ctrl+←/→: word nav • home/end: line nav • ctrl+w/k/u: delete • enter: save • esc: cancel"))
 
 	return content.String()
 }

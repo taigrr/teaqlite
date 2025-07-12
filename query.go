@@ -9,10 +9,11 @@ import (
 
 // Query Model
 type queryModel struct {
-	shared     *sharedData
-	queryInput string
-	results    [][]string
-	columns    []string
+	shared      *sharedData
+	queryInput  string
+	cursorPos   int
+	results     [][]string
+	columns     []string
 }
 
 func newQueryModel(shared *sharedData) *queryModel {
@@ -43,18 +44,106 @@ func (m *queryModel) handleInput(msg tea.KeyMsg) (subModel, tea.Cmd) {
 			// Handle error - could set an error field
 		}
 
-	case "backspace":
-		if len(m.queryInput) > 0 {
-			m.queryInput = m.queryInput[:len(m.queryInput)-1]
+	// Cursor movement
+	case "left":
+		if m.cursorPos > 0 {
+			m.cursorPos--
 		}
 
+	case "right":
+		if m.cursorPos < len(m.queryInput) {
+			m.cursorPos++
+		}
+
+	case "ctrl+left":
+		m.cursorPos = m.wordLeft(m.cursorPos)
+
+	case "ctrl+right":
+		m.cursorPos = m.wordRight(m.cursorPos)
+
+	case "home", "ctrl+a":
+		m.cursorPos = 0
+
+	case "end", "ctrl+e":
+		m.cursorPos = len(m.queryInput)
+
+	// Deletion
+	case "backspace":
+		if m.cursorPos > 0 {
+			m.queryInput = m.queryInput[:m.cursorPos-1] + m.queryInput[m.cursorPos:]
+			m.cursorPos--
+		}
+
+	case "delete", "ctrl+d":
+		if m.cursorPos < len(m.queryInput) {
+			m.queryInput = m.queryInput[:m.cursorPos] + m.queryInput[m.cursorPos+1:]
+		}
+
+	case "ctrl+w":
+		// Delete word backward
+		newPos := m.wordLeft(m.cursorPos)
+		m.queryInput = m.queryInput[:newPos] + m.queryInput[m.cursorPos:]
+		m.cursorPos = newPos
+
+	case "ctrl+k":
+		// Delete from cursor to end of line
+		m.queryInput = m.queryInput[:m.cursorPos]
+
+	case "ctrl+u":
+		// Delete from beginning of line to cursor
+		m.queryInput = m.queryInput[m.cursorPos:]
+		m.cursorPos = 0
+
 	default:
-		// In query mode, all single characters should be treated as input
+		// Insert character at cursor position
 		if len(msg.String()) == 1 {
-			m.queryInput += msg.String()
+			m.queryInput = m.queryInput[:m.cursorPos] + msg.String() + m.queryInput[m.cursorPos:]
+			m.cursorPos++
 		}
 	}
 	return m, nil
+}
+
+// Helper functions for word navigation
+func (m *queryModel) wordLeft(pos int) int {
+	if pos == 0 {
+		return 0
+	}
+	
+	// Skip whitespace
+	for pos > 0 && isWhitespace(m.queryInput[pos-1]) {
+		pos--
+	}
+	
+	// Skip non-whitespace
+	for pos > 0 && !isWhitespace(m.queryInput[pos-1]) {
+		pos--
+	}
+	
+	return pos
+}
+
+func (m *queryModel) wordRight(pos int) int {
+	length := len(m.queryInput)
+	if pos >= length {
+		return length
+	}
+	
+	// Skip non-whitespace
+	for pos < length && !isWhitespace(m.queryInput[pos]) {
+		pos++
+	}
+	
+	// Skip whitespace
+	for pos < length && isWhitespace(m.queryInput[pos]) {
+		pos++
+	}
+	
+	return pos
+}
+
+func isWhitespace(r byte) bool {
+	return r == ' ' || r == '\t' || r == '\n' || r == '\r'
 }
 
 func (m *queryModel) executeQuery() error {
@@ -113,9 +202,18 @@ func (m *queryModel) View() string {
 	content.WriteString(titleStyle.Render("SQL Query"))
 	content.WriteString("\n\n")
 	
+	// Display query with cursor
 	content.WriteString("Query: ")
-	content.WriteString(m.queryInput)
-	content.WriteString("_") // cursor
+	if m.cursorPos <= len(m.queryInput) {
+		before := m.queryInput[:m.cursorPos]
+		after := m.queryInput[m.cursorPos:]
+		content.WriteString(before)
+		content.WriteString("█") // Block cursor
+		content.WriteString(after)
+	} else {
+		content.WriteString(m.queryInput)
+		content.WriteString("█")
+	}
 	content.WriteString("\n\n")
 
 	if len(m.results) > 0 {
@@ -169,7 +267,7 @@ func (m *queryModel) View() string {
 	}
 
 	content.WriteString("\n")
-	content.WriteString(helpStyle.Render("enter: execute query • esc: back • q: quit"))
+	content.WriteString(helpStyle.Render("enter: execute • ←/→: move cursor • ctrl+←/→: word nav • home/end: line nav • ctrl+w/k/u: delete • esc: back"))
 
 	return content.String()
 }

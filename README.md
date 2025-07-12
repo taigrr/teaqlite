@@ -63,16 +63,21 @@ go run main.go sample.db
 - `q` or `Ctrl+C`: Quit
 
 ### Cell Edit Mode
-- Type new value for the selected cell
+- **Readline-style Editing**: Full cursor control and advanced editing
+- **Cursor Movement**: `←/→` arrows, `Ctrl+←/→` for word navigation
+- **Line Navigation**: `Home`/`Ctrl+A` (start), `End`/`Ctrl+E` (end)
+- **Deletion**: `Backspace`, `Delete`/`Ctrl+D`, `Ctrl+W` (word), `Ctrl+K` (to end), `Ctrl+U` (to start)
 - **Text Wrapping**: Long values are automatically wrapped for better visibility
 - `Enter`: Save changes to database
 - `Esc`: Cancel editing and return to row detail
-- `Backspace`: Delete characters
 
 ### SQL Query Mode
-- Type your SQL query (all keys including r, s, h, j, k, l work as input)
+- **Advanced Text Editing**: Full readline-style editing controls
+- **Cursor Movement**: `←/→` arrows, `Ctrl+←/→` for word navigation  
+- **Line Navigation**: `Home`/`Ctrl+A` (start), `End`/`Ctrl+E` (end)
+- **Deletion**: `Backspace`, `Delete`/`Ctrl+D`, `Ctrl+W` (word), `Ctrl+K` (to end), `Ctrl+U` (to start)
+- Type your SQL query (all keys work as input, no conflicts with navigation)
 - `Enter`: Execute query
-- `Backspace`: Delete characters
 - `Esc`: Return to table list
 - `q` or `Ctrl+C`: Quit
 
@@ -85,15 +90,16 @@ go run main.go sample.db
 5. **Data Search**: Search within table data across all columns
 6. **Row Detail Modal**: 2-column view showing Column | Value for selected row
 7. **Cell Editing**: Live editing of individual cell values with database updates
-8. **Text Wrapping**: Long values are automatically wrapped in edit and detail views
-9. **Primary Key Detection**: Uses primary keys for reliable row updates
-10. **Screen-Aware Display**: Content automatically fits terminal size
-11. **SQL Query Execution**: Execute custom SQL queries and view results (all keys work as input)
-12. **Error Handling**: Displays database errors gracefully
-13. **Responsive UI**: Clean, styled interface that adapts to terminal size
-14. **Column Information**: Shows column names and handles NULL values
-15. **Navigation**: Intuitive keyboard shortcuts for all operations
-16. **Dynamic Column Width**: Columns adjust to terminal width
+8. **Readline-style Editing**: Full cursor control with word navigation, line navigation, and advanced deletion
+9. **Text Wrapping**: Long values are automatically wrapped in edit and detail views
+10. **Primary Key Detection**: Uses primary keys for reliable row updates
+11. **Screen-Aware Display**: Content automatically fits terminal size
+12. **SQL Query Execution**: Execute custom SQL queries with advanced text editing
+13. **Error Handling**: Displays database errors gracefully
+14. **Responsive UI**: Clean, styled interface that adapts to terminal size
+15. **Column Information**: Shows column names and handles NULL values
+16. **Navigation**: Intuitive keyboard shortcuts for all operations
+17. **Dynamic Column Width**: Columns adjust to terminal width
 
 ## Navigation Flow
 
