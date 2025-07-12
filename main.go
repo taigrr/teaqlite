@@ -22,27 +22,37 @@ const (
 	modeTableList viewMode = iota
 	modeTableData
 	modeQuery
+	modeRowDetail
+	modeEditCell
 )
 
 type model struct {
-	db             *sql.DB
-	mode           viewMode
-	tables         []string
-	filteredTables []string
-	selectedTable  int
-	tableListPage  int
-	tableData      [][]string
-	columns        []string
-	currentPage    int
-	totalRows      int
-	query          string
-	queryInput     string
-	searchInput    string
-	searching      bool
-	cursor         int
-	err            error
-	width          int
-	height         int
+	db               *sql.DB
+	mode             viewMode
+	tables           []string
+	filteredTables   []string
+	selectedTable    int
+	tableListPage    int
+	tableData        [][]string
+	filteredData     [][]string
+	columns          []string
+	primaryKeys      []string
+	currentPage      int
+	totalRows        int
+	selectedRow      int
+	selectedCol      int
+	query            string
+	queryInput       string
+	searchInput      string
+	dataSearchInput  string
+	searching        bool
+	dataSearching    bool
+	editingValue     string
+	originalValue    string
+	cursor           int
+	err              error
+	width            int
+	height           int
 }
 
 var (
@@ -80,15 +90,20 @@ func initialModel(dbPath string) model {
 	}
 
 	m := model{
-		db:             db,
-		mode:           modeTableList,
-		currentPage:    0,
-		tableListPage:  0,
-		filteredTables: []string{},
-		searchInput:    "",
-		searching:      false,
-		width:          80,  // default width
-		height:         24,  // default height
+		db:              db,
+		mode:            modeTableList,
+		currentPage:     0,
+		tableListPage:   0,
+		filteredTables:  []string{},
+		filteredData:    [][]string{},
+		searchInput:     "",
+		dataSearchInput: "",
+		searching:       false,
+		dataSearching:   false,
+		selectedRow:     0,
+		selectedCol:     0,
+		width:           80, // default width
+		height:          24, // default height
 	}
 
 	m.loadTables()
@@ -158,7 +173,7 @@ func (m *model) loadTableData() {
 
 	tableName := m.filteredTables[m.selectedTable]
 	
-	// Get column info
+	// Get column info and primary keys
 	rows, err := m.db.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
 	if err != nil {
 		m.err = err
@@ -167,6 +182,7 @@ func (m *model) loadTableData() {
 	defer rows.Close()
 
 	m.columns = []string{}
+	m.primaryKeys = []string{}
 	for rows.Next() {
 		var cid int
 		var name, dataType string
@@ -178,6 +194,9 @@ func (m *model) loadTableData() {
 			return
 		}
 		m.columns = append(m.columns, name)
+		if pk == 1 {
+			m.primaryKeys = append(m.primaryKeys, name)
+		}
 	}
 
 	// Get total row count
@@ -222,6 +241,111 @@ func (m *model) loadTableData() {
 		}
 		m.tableData = append(m.tableData, row)
 	}
+	
+	// Apply data filtering
+	m.filterData()
+	
+	// Reset row selection if needed
+	if m.selectedRow >= len(m.filteredData) {
+		m.selectedRow = 0
+	}
+}
+
+func (m *model) filterData() {
+	if m.dataSearchInput == "" {
+		m.filteredData = make([][]string, len(m.tableData))
+		copy(m.filteredData, m.tableData)
+	} else {
+		m.filteredData = [][]string{}
+		searchLower := strings.ToLower(m.dataSearchInput)
+		for _, row := range m.tableData {
+			// Search in all columns of the row
+			found := false
+			for _, cell := range row {
+				if strings.Contains(strings.ToLower(cell), searchLower) {
+					found = true
+					break
+				}
+			}
+			if found {
+				m.filteredData = append(m.filteredData, row)
+			}
+		}
+	}
+}
+
+func (m *model) updateCell(rowIndex, colIndex int, newValue string) error {
+	if rowIndex >= len(m.filteredData) || colIndex >= len(m.columns) {
+		return fmt.Errorf("invalid row or column index")
+	}
+	
+	tableName := m.filteredTables[m.selectedTable]
+	columnName := m.columns[colIndex]
+	
+	// Build WHERE clause using primary keys or all columns if no primary key
+	var whereClause strings.Builder
+	var args []any
+	
+	if len(m.primaryKeys) > 0 {
+		// Use primary keys for WHERE clause
+		for i, pkCol := range m.primaryKeys {
+			if i > 0 {
+				whereClause.WriteString(" AND ")
+			}
+			// Find the column index for this primary key
+			pkIndex := -1
+			for j, col := range m.columns {
+				if col == pkCol {
+					pkIndex = j
+					break
+				}
+			}
+			if pkIndex >= 0 {
+				whereClause.WriteString(fmt.Sprintf("%s = ?", pkCol))
+				args = append(args, m.filteredData[rowIndex][pkIndex])
+			}
+		}
+	} else {
+		// Use all columns for WHERE clause (less reliable but works)
+		for i, col := range m.columns {
+			if i > 0 {
+				whereClause.WriteString(" AND ")
+			}
+			whereClause.WriteString(fmt.Sprintf("%s = ?", col))
+			args = append(args, m.filteredData[rowIndex][i])
+		}
+	}
+	
+	// Execute UPDATE
+	updateQuery := fmt.Sprintf("UPDATE %s SET %s = ? WHERE %s", tableName, columnName, whereClause.String())
+	args = append([]any{newValue}, args...)
+	
+	_, err := m.db.Exec(updateQuery, args...)
+	if err != nil {
+		return err
+	}
+	
+	// Update local data
+	m.filteredData[rowIndex][colIndex] = newValue
+	// Also update the original data if it exists
+	for i, row := range m.tableData {
+		if len(row) > colIndex {
+			// Simple comparison - this might not work perfectly for all cases
+			match := true
+			for j, cell := range row {
+				if j < len(m.filteredData[rowIndex]) && cell != m.filteredData[rowIndex][j] && j != colIndex {
+					match = false
+					break
+				}
+			}
+			if match {
+				m.tableData[i][colIndex] = newValue
+				break
+			}
+		}
+	}
+	
+	return nil
 }
 
 func (m *model) executeQuery() {
@@ -284,7 +408,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 	case tea.KeyMsg:
-		// Handle search mode first
+		// Handle edit mode first
+		if m.mode == modeEditCell {
+			switch msg.String() {
+			case "esc":
+				m.mode = modeRowDetail
+				m.editingValue = ""
+			case "enter":
+				if err := m.updateCell(m.selectedRow, m.selectedCol, m.editingValue); err != nil {
+					m.err = err
+				} else {
+					m.mode = modeRowDetail
+					m.editingValue = ""
+				}
+			case "backspace":
+				if len(m.editingValue) > 0 {
+					m.editingValue = m.editingValue[:len(m.editingValue)-1]
+				}
+			default:
+				if len(msg.String()) == 1 {
+					m.editingValue += msg.String()
+				}
+			}
+			return m, nil
+		}
+
+		// Handle search modes
 		if m.searching {
 			switch msg.String() {
 			case "esc":
@@ -308,6 +457,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		if m.dataSearching {
+			switch msg.String() {
+			case "esc":
+				m.dataSearching = false
+				m.dataSearchInput = ""
+				m.filterData()
+			case "enter":
+				m.dataSearching = false
+				m.filterData()
+			case "backspace":
+				if len(m.dataSearchInput) > 0 {
+					m.dataSearchInput = m.dataSearchInput[:len(m.dataSearchInput)-1]
+					m.filterData()
+				}
+			default:
+				if len(msg.String()) == 1 {
+					m.dataSearchInput += msg.String()
+					m.filterData()
+				}
+			}
+			return m, nil
+		}
+
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
@@ -317,12 +489,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case modeTableData, modeQuery:
 				m.mode = modeTableList
 				m.err = nil
+			case modeRowDetail:
+				m.mode = modeTableData
 			}
 
 		case "/":
-			if m.mode == modeTableList {
+			switch m.mode {
+			case modeTableList:
 				m.searching = true
 				m.searchInput = ""
+			case modeTableData:
+				m.dataSearching = true
+				m.dataSearchInput = ""
 			}
 
 		case "enter":
@@ -331,7 +509,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.filteredTables) > 0 {
 					m.mode = modeTableData
 					m.currentPage = 0
+					m.selectedRow = 0
 					m.loadTableData()
+				}
+			case modeTableData:
+				if len(m.filteredData) > 0 {
+					m.mode = modeRowDetail
+					m.selectedCol = 0
+				}
+			case modeRowDetail:
+				if len(m.filteredData) > 0 && m.selectedRow < len(m.filteredData) && m.selectedCol < len(m.columns) {
+					m.mode = modeEditCell
+					m.originalValue = m.filteredData[m.selectedRow][m.selectedCol]
+					m.editingValue = m.originalValue
 				}
 			case modeQuery:
 				m.executeQuery()
@@ -348,6 +538,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.tableListPage--
 					}
 				}
+			case modeTableData:
+				if m.selectedRow > 0 {
+					m.selectedRow--
+				}
+			case modeRowDetail:
+				if m.selectedCol > 0 {
+					m.selectedCol--
+				}
 			}
 
 		case "down", "j":
@@ -361,6 +559,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.tableListPage++
 					}
 				}
+			case modeTableData:
+				if m.selectedRow < len(m.filteredData)-1 {
+					m.selectedRow++
+				}
+			case modeRowDetail:
+				if m.selectedCol < len(m.columns)-1 {
+					m.selectedCol++
+				}
 			}
 
 		case "left", "h":
@@ -368,6 +574,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case modeTableData:
 				if m.currentPage > 0 {
 					m.currentPage--
+					m.selectedRow = 0
 					m.loadTableData()
 				}
 			case modeTableList:
@@ -382,9 +589,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "right", "l":
 			switch m.mode {
 			case modeTableData:
-				maxPage := (m.totalRows - 1) / pageSize
+				maxPage := max(0, (m.totalRows-1)/pageSize)
 				if m.currentPage < maxPage {
 					m.currentPage++
+					m.selectedRow = 0
 					m.loadTableData()
 				}
 			case modeTableList:
@@ -409,9 +617,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "r":
-			if m.mode == modeTableList {
+			switch m.mode {
+			case modeTableList:
 				m.loadTables()
-			} else if m.mode == modeTableData {
+			case modeTableData:
+				m.loadTableData()
+			case modeRowDetail:
 				m.loadTableData()
 			}
 
@@ -499,14 +710,28 @@ func (m model) View() string {
 		maxPage := max(0, (m.totalRows-1)/pageSize)
 		
 		content.WriteString(titleStyle.Render(fmt.Sprintf("Table: %s (Page %d/%d)", tableName, m.currentPage+1, maxPage+1)))
-		content.WriteString("\n\n")
+		content.WriteString("\n")
+		
+		// Search bar for data
+		if m.dataSearching {
+			content.WriteString("\nSearch data: " + m.dataSearchInput + "_")
+			content.WriteString("\n")
+		} else if m.dataSearchInput != "" {
+			content.WriteString(fmt.Sprintf("\nFiltered by: %s (%d/%d rows)", m.dataSearchInput, len(m.filteredData), len(m.tableData)))
+			content.WriteString("\n")
+		}
+		content.WriteString("\n")
 
-		if len(m.tableData) == 0 {
-			content.WriteString("No data in table")
+		if len(m.filteredData) == 0 {
+			if m.dataSearchInput != "" {
+				content.WriteString("No rows match your search")
+			} else {
+				content.WriteString("No data in table")
+			}
 		} else {
 			// Limit rows to fit screen
 			visibleRows := m.getVisibleDataRowCount()
-			displayRows := min(len(m.tableData), visibleRows)
+			displayRows := min(len(m.filteredData), visibleRows)
 			
 			// Create table header
 			var headerRow strings.Builder
@@ -534,9 +759,12 @@ func (m model) View() string {
 			content.WriteString(separator.String())
 			content.WriteString("\n")
 
-			// Add data rows
+			// Add data rows with highlighting
 			for i := 0; i < displayRows; i++ {
-				row := m.tableData[i]
+				if i >= len(m.filteredData) {
+					break
+				}
+				row := m.filteredData[i]
 				var dataRow strings.Builder
 				for j, cell := range row {
 					if j > 0 {
@@ -544,13 +772,90 @@ func (m model) View() string {
 					}
 					dataRow.WriteString(fmt.Sprintf("%-*s", colWidth, truncateString(cell, colWidth)))
 				}
-				content.WriteString(normalStyle.Render(dataRow.String()))
+				if i == m.selectedRow {
+					content.WriteString(selectedStyle.Render(dataRow.String()))
+				} else {
+					content.WriteString(normalStyle.Render(dataRow.String()))
+				}
 				content.WriteString("\n")
 			}
 		}
 
 		content.WriteString("\n")
-		content.WriteString(helpStyle.Render(fmt.Sprintf("←/→: prev/next page • Total rows: %d • esc: back • r: refresh • q: quit", m.totalRows)))
+		if m.dataSearching {
+			content.WriteString(helpStyle.Render("Type to search • enter/esc: finish search"))
+		} else {
+			content.WriteString(helpStyle.Render("↑/↓: select row • ←/→: page • /: search • enter: view row • esc: back • r: refresh • q: quit"))
+		}
+
+	case modeRowDetail:
+		tableName := m.filteredTables[m.selectedTable]
+		content.WriteString(titleStyle.Render(fmt.Sprintf("Row Detail: %s", tableName)))
+		content.WriteString("\n\n")
+
+		if m.selectedRow >= len(m.filteredData) {
+			content.WriteString("Invalid row selection")
+		} else {
+			row := m.filteredData[m.selectedRow]
+			
+			// Show as 2-column table: Column | Value
+			colWidth := max(15, m.width/3)
+			valueWidth := max(20, m.width-colWidth-5)
+			
+			// Header
+			headerRow := fmt.Sprintf("%-*s | %-*s", colWidth, "Column", valueWidth, "Value")
+			content.WriteString(selectedStyle.Render(headerRow))
+			content.WriteString("\n")
+			
+			// Separator
+			separator := strings.Repeat("-", colWidth) + "-+-" + strings.Repeat("-", valueWidth)
+			content.WriteString(separator)
+			content.WriteString("\n")
+			
+			// Data rows
+			visibleRows := m.getVisibleDataRowCount() - 4 // Account for header and title
+			displayRows := min(len(m.columns), visibleRows)
+			
+			for i := 0; i < displayRows; i++ {
+				if i >= len(m.columns) || i >= len(row) {
+					break
+				}
+				
+				col := m.columns[i]
+				val := row[i]
+				
+				dataRow := fmt.Sprintf("%-*s | %-*s", 
+					colWidth, truncateString(col, colWidth),
+					valueWidth, truncateString(val, valueWidth))
+				
+				if i == m.selectedCol {
+					content.WriteString(selectedStyle.Render(dataRow))
+				} else {
+					content.WriteString(normalStyle.Render(dataRow))
+				}
+				content.WriteString("\n")
+			}
+		}
+
+		content.WriteString("\n")
+		content.WriteString(helpStyle.Render("↑/↓: select field • enter: edit • esc: back • q: quit"))
+
+	case modeEditCell:
+		tableName := m.filteredTables[m.selectedTable]
+		columnName := ""
+		if m.selectedCol < len(m.columns) {
+			columnName = m.columns[m.selectedCol]
+		}
+		
+		content.WriteString(titleStyle.Render(fmt.Sprintf("Edit: %s.%s", tableName, columnName)))
+		content.WriteString("\n\n")
+		
+		content.WriteString("Original: " + m.originalValue)
+		content.WriteString("\n")
+		content.WriteString("New: " + m.editingValue + "_")
+		content.WriteString("\n\n")
+		
+		content.WriteString(helpStyle.Render("Type new value • enter: save • esc: cancel"))
 
 	case modeQuery:
 		content.WriteString(titleStyle.Render("SQL Query"))
