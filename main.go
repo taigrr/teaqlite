@@ -546,6 +546,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.selectedCol > 0 {
 					m.selectedCol--
 				}
+			case modeQuery:
+				// In query mode, these should be treated as input
+				if len(msg.String()) == 1 {
+					m.queryInput += msg.String()
+					m.query = m.queryInput
+				}
 			}
 
 		case "down", "j":
@@ -567,6 +573,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.selectedCol < len(m.columns)-1 {
 					m.selectedCol++
 				}
+			case modeQuery:
+				// In query mode, these should be treated as input
+				if len(msg.String()) == 1 {
+					m.queryInput += msg.String()
+					m.query = m.queryInput
+				}
 			}
 
 		case "left", "h":
@@ -583,6 +595,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Adjust selection to stay in view
 					visibleCount := m.getVisibleTableCount()
 					m.selectedTable = m.tableListPage * visibleCount
+				}
+			case modeQuery:
+				// In query mode, these should be treated as input
+				if len(msg.String()) == 1 {
+					m.queryInput += msg.String()
+					m.query = m.queryInput
 				}
 			}
 
@@ -606,6 +624,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.selectedTable = len(m.filteredTables) - 1
 					}
 				}
+			case modeQuery:
+				// In query mode, these should be treated as input
+				if len(msg.String()) == 1 {
+					m.queryInput += msg.String()
+					m.query = m.queryInput
+				}
 			}
 
 		case "s":
@@ -614,6 +638,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.queryInput = ""
 				m.query = ""
 				m.cursor = 0
+			} else if m.mode == modeQuery {
+				// In query mode, 's' should be treated as input
+				m.queryInput += msg.String()
+				m.query = m.queryInput
 			}
 
 		case "r":
@@ -624,6 +652,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.loadTableData()
 			case modeRowDetail:
 				m.loadTableData()
+			case modeQuery:
+				// In query mode, 'r' should be treated as input
+				m.queryInput += msg.String()
+				m.query = m.queryInput
 			}
 
 		case "backspace":
@@ -824,16 +856,50 @@ func (m model) View() string {
 				col := m.columns[i]
 				val := row[i]
 				
-				dataRow := fmt.Sprintf("%-*s | %-*s", 
-					colWidth, truncateString(col, colWidth),
-					valueWidth, truncateString(val, valueWidth))
-				
-				if i == m.selectedCol {
-					content.WriteString(selectedStyle.Render(dataRow))
+				// For long values, show them wrapped on multiple lines
+				if len(val) > valueWidth {
+					// First line with column name
+					firstLine := fmt.Sprintf("%-*s | %-*s", 
+						colWidth, truncateString(col, colWidth),
+						valueWidth, truncateString(val, valueWidth))
+					
+					if i == m.selectedCol {
+						content.WriteString(selectedStyle.Render(firstLine))
+					} else {
+						content.WriteString(normalStyle.Render(firstLine))
+					}
+					content.WriteString("\n")
+					
+					// Additional lines for wrapped text (if there's space)
+					if len(val) > valueWidth && visibleRows > displayRows {
+						wrappedLines := wrapText(val, valueWidth)
+						for j, wrappedLine := range wrappedLines[1:] { // Skip first line already shown
+							if j >= 2 { // Limit to 3 total lines per field
+								break
+							}
+							continuationLine := fmt.Sprintf("%-*s | %-*s", 
+								colWidth, "", valueWidth, wrappedLine)
+							if i == m.selectedCol {
+								content.WriteString(selectedStyle.Render(continuationLine))
+							} else {
+								content.WriteString(normalStyle.Render(continuationLine))
+							}
+							content.WriteString("\n")
+						}
+					}
 				} else {
-					content.WriteString(normalStyle.Render(dataRow))
+					// Normal single line
+					dataRow := fmt.Sprintf("%-*s | %-*s", 
+						colWidth, truncateString(col, colWidth),
+						valueWidth, val)
+					
+					if i == m.selectedCol {
+						content.WriteString(selectedStyle.Render(dataRow))
+					} else {
+						content.WriteString(normalStyle.Render(dataRow))
+					}
+					content.WriteString("\n")
 				}
-				content.WriteString("\n")
 			}
 		}
 
@@ -850,11 +916,30 @@ func (m model) View() string {
 		content.WriteString(titleStyle.Render(fmt.Sprintf("Edit: %s.%s", tableName, columnName)))
 		content.WriteString("\n\n")
 		
-		content.WriteString("Original: " + m.originalValue)
-		content.WriteString("\n")
-		content.WriteString("New: " + m.editingValue + "_")
-		content.WriteString("\n\n")
+		// Calculate available width for text (leave some margin)
+		textWidth := max(20, m.width-4)
 		
+		// Wrap original value
+		content.WriteString("Original:")
+		content.WriteString("\n")
+		originalLines := wrapText(m.originalValue, textWidth)
+		for _, line := range originalLines {
+			content.WriteString("  " + line)
+			content.WriteString("\n")
+		}
+		
+		content.WriteString("\n")
+		
+		// Wrap new value
+		content.WriteString("New:")
+		content.WriteString("\n")
+		newLines := wrapText(m.editingValue+"_", textWidth) // Add cursor
+		for _, line := range newLines {
+			content.WriteString("  " + line)
+			content.WriteString("\n")
+		}
+		
+		content.WriteString("\n")
 		content.WriteString(helpStyle.Render("Type new value • enter: save • esc: cancel"))
 
 	case modeQuery:
@@ -936,6 +1021,48 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+func wrapText(text string, width int) []string {
+	if width <= 0 {
+		return []string{text}
+	}
+	
+	var lines []string
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return []string{text}
+	}
+	
+	currentLine := ""
+	for _, word := range words {
+		// If adding this word would exceed the width
+		if len(currentLine)+len(word)+1 > width {
+			if currentLine != "" {
+				lines = append(lines, currentLine)
+				currentLine = word
+			} else {
+				// Word is longer than width, break it
+				for len(word) > width {
+					lines = append(lines, word[:width])
+					word = word[width:]
+				}
+				currentLine = word
+			}
+		} else {
+			if currentLine != "" {
+				currentLine += " " + word
+			} else {
+				currentLine = word
+			}
+		}
+	}
+	
+	if currentLine != "" {
+		lines = append(lines, currentLine)
+	}
+	
+	return lines
 }
 
 func min(a, b int) int {
