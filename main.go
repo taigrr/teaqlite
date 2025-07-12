@@ -25,20 +25,24 @@ const (
 )
 
 type model struct {
-	db           *sql.DB
-	mode         viewMode
-	tables       []string
-	selectedTable int
-	tableData    [][]string
-	columns      []string
-	currentPage  int
-	totalRows    int
-	query        string
-	queryInput   string
-	cursor       int
-	err          error
-	width        int
-	height       int
+	db             *sql.DB
+	mode           viewMode
+	tables         []string
+	filteredTables []string
+	selectedTable  int
+	tableListPage  int
+	tableData      [][]string
+	columns        []string
+	currentPage    int
+	totalRows      int
+	query          string
+	queryInput     string
+	searchInput    string
+	searching      bool
+	cursor         int
+	err            error
+	width          int
+	height         int
 }
 
 var (
@@ -76,9 +80,15 @@ func initialModel(dbPath string) model {
 	}
 
 	m := model{
-		db:          db,
-		mode:        modeTableList,
-		currentPage: 0,
+		db:             db,
+		mode:           modeTableList,
+		currentPage:    0,
+		tableListPage:  0,
+		filteredTables: []string{},
+		searchInput:    "",
+		searching:      false,
+		width:          80,  // default width
+		height:         24,  // default height
 	}
 
 	m.loadTables()
@@ -102,14 +112,51 @@ func (m *model) loadTables() {
 		}
 		m.tables = append(m.tables, name)
 	}
+	m.filterTables()
+}
+
+func (m *model) filterTables() {
+	if m.searchInput == "" {
+		m.filteredTables = make([]string, len(m.tables))
+		copy(m.filteredTables, m.tables)
+	} else {
+		m.filteredTables = []string{}
+		searchLower := strings.ToLower(m.searchInput)
+		for _, table := range m.tables {
+			if strings.Contains(strings.ToLower(table), searchLower) {
+				m.filteredTables = append(m.filteredTables, table)
+			}
+		}
+	}
+	
+	// Reset selection and page if needed
+	if m.selectedTable >= len(m.filteredTables) {
+		m.selectedTable = 0
+		m.tableListPage = 0
+	}
+}
+
+func (m *model) getVisibleTableCount() int {
+	// Reserve space for title (3 lines), help (3 lines), search bar (2 lines if searching)
+	reservedLines := 8
+	if m.searching {
+		reservedLines += 2
+	}
+	return max(1, m.height-reservedLines)
+}
+
+func (m *model) getVisibleDataRowCount() int {
+	// Reserve space for title (3 lines), header (3 lines), help (3 lines)
+	reservedLines := 9
+	return max(1, m.height-reservedLines)
 }
 
 func (m *model) loadTableData() {
-	if m.selectedTable >= len(m.tables) {
+	if m.selectedTable >= len(m.filteredTables) {
 		return
 	}
 
-	tableName := m.tables[m.selectedTable]
+	tableName := m.filteredTables[m.selectedTable]
 	
 	// Get column info
 	rows, err := m.db.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
@@ -237,6 +284,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 	case tea.KeyMsg:
+		// Handle search mode first
+		if m.searching {
+			switch msg.String() {
+			case "esc":
+				m.searching = false
+				m.searchInput = ""
+				m.filterTables()
+			case "enter":
+				m.searching = false
+				m.filterTables()
+			case "backspace":
+				if len(m.searchInput) > 0 {
+					m.searchInput = m.searchInput[:len(m.searchInput)-1]
+					m.filterTables()
+				}
+			default:
+				if len(msg.String()) == 1 {
+					m.searchInput += msg.String()
+					m.filterTables()
+				}
+			}
+			return m, nil
+		}
+
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
@@ -248,10 +319,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.err = nil
 			}
 
+		case "/":
+			if m.mode == modeTableList {
+				m.searching = true
+				m.searchInput = ""
+			}
+
 		case "enter":
 			switch m.mode {
 			case modeTableList:
-				if len(m.tables) > 0 {
+				if len(m.filteredTables) > 0 {
 					m.mode = modeTableData
 					m.currentPage = 0
 					m.loadTableData()
@@ -265,14 +342,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case modeTableList:
 				if m.selectedTable > 0 {
 					m.selectedTable--
+					// Check if we need to scroll up
+					visibleCount := m.getVisibleTableCount()
+					if m.selectedTable < m.tableListPage*visibleCount {
+						m.tableListPage--
+					}
 				}
 			}
 
 		case "down", "j":
 			switch m.mode {
 			case modeTableList:
-				if m.selectedTable < len(m.tables)-1 {
+				if m.selectedTable < len(m.filteredTables)-1 {
 					m.selectedTable++
+					// Check if we need to scroll down
+					visibleCount := m.getVisibleTableCount()
+					if m.selectedTable >= (m.tableListPage+1)*visibleCount {
+						m.tableListPage++
+					}
 				}
 			}
 
@@ -283,6 +370,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.currentPage--
 					m.loadTableData()
 				}
+			case modeTableList:
+				if m.tableListPage > 0 {
+					m.tableListPage--
+					// Adjust selection to stay in view
+					visibleCount := m.getVisibleTableCount()
+					m.selectedTable = m.tableListPage * visibleCount
+				}
 			}
 
 		case "right", "l":
@@ -292,6 +386,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.currentPage < maxPage {
 					m.currentPage++
 					m.loadTableData()
+				}
+			case modeTableList:
+				visibleCount := m.getVisibleTableCount()
+				maxPage := (len(m.filteredTables) - 1) / visibleCount
+				if m.tableListPage < maxPage {
+					m.tableListPage++
+					// Adjust selection to stay in view
+					m.selectedTable = m.tableListPage * visibleCount
+					if m.selectedTable >= len(m.filteredTables) {
+						m.selectedTable = len(m.filteredTables) - 1
+					}
 				}
 			}
 
@@ -318,8 +423,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		default:
 			if m.mode == modeQuery {
-				m.queryInput += msg.String()
-				m.query = m.queryInput
+				if len(msg.String()) == 1 {
+					m.queryInput += msg.String()
+					m.query = m.queryInput
+				}
 			}
 		}
 	}
@@ -336,13 +443,34 @@ func (m model) View() string {
 
 	switch m.mode {
 	case modeTableList:
+		// Title
 		content.WriteString(titleStyle.Render("SQLite TUI - Tables"))
-		content.WriteString("\n\n")
+		content.WriteString("\n")
+		
+		// Search bar
+		if m.searching {
+			content.WriteString("\nSearch: " + m.searchInput + "_")
+			content.WriteString("\n")
+		} else if m.searchInput != "" {
+			content.WriteString(fmt.Sprintf("\nFiltered by: %s (%d/%d tables)", m.searchInput, len(m.filteredTables), len(m.tables)))
+			content.WriteString("\n")
+		}
+		content.WriteString("\n")
 
-		if len(m.tables) == 0 {
-			content.WriteString("No tables found in database")
+		// Table list with pagination
+		if len(m.filteredTables) == 0 {
+			if m.searchInput != "" {
+				content.WriteString("No tables match your search")
+			} else {
+				content.WriteString("No tables found in database")
+			}
 		} else {
-			for i, table := range m.tables {
+			visibleCount := m.getVisibleTableCount()
+			startIdx := m.tableListPage * visibleCount
+			endIdx := min(startIdx+visibleCount, len(m.filteredTables))
+			
+			for i := startIdx; i < endIdx; i++ {
+				table := m.filteredTables[i]
 				if i == m.selectedTable {
 					content.WriteString(selectedStyle.Render(fmt.Sprintf("> %s", table)))
 				} else {
@@ -350,14 +478,25 @@ func (m model) View() string {
 				}
 				content.WriteString("\n")
 			}
+			
+			// Show pagination info
+			if len(m.filteredTables) > visibleCount {
+				totalPages := (len(m.filteredTables) - 1) / visibleCount + 1
+				content.WriteString(fmt.Sprintf("\nPage %d/%d", m.tableListPage+1, totalPages))
+			}
 		}
 
+		// Help
 		content.WriteString("\n")
-		content.WriteString(helpStyle.Render("↑/↓: navigate • enter: view table • s: SQL query • r: refresh • q: quit"))
+		if m.searching {
+			content.WriteString(helpStyle.Render("Type to search • enter/esc: finish search"))
+		} else {
+			content.WriteString(helpStyle.Render("↑/↓: navigate • ←/→: page • /: search • enter: view • s: SQL • r: refresh • q: quit"))
+		}
 
 	case modeTableData:
-		tableName := m.tables[m.selectedTable]
-		maxPage := (m.totalRows - 1) / pageSize
+		tableName := m.filteredTables[m.selectedTable]
+		maxPage := max(0, (m.totalRows-1)/pageSize)
 		
 		content.WriteString(titleStyle.Render(fmt.Sprintf("Table: %s (Page %d/%d)", tableName, m.currentPage+1, maxPage+1)))
 		content.WriteString("\n\n")
@@ -365,13 +504,21 @@ func (m model) View() string {
 		if len(m.tableData) == 0 {
 			content.WriteString("No data in table")
 		} else {
+			// Limit rows to fit screen
+			visibleRows := m.getVisibleDataRowCount()
+			displayRows := min(len(m.tableData), visibleRows)
+			
 			// Create table header
 			var headerRow strings.Builder
+			colWidth := 10 // default minimum width
+			if len(m.columns) > 0 && m.width > 0 {
+				colWidth = max(10, (m.width-len(m.columns)*3)/len(m.columns))
+			}
 			for i, col := range m.columns {
 				if i > 0 {
 					headerRow.WriteString(" | ")
 				}
-				headerRow.WriteString(fmt.Sprintf("%-15s", truncateString(col, 15)))
+				headerRow.WriteString(fmt.Sprintf("%-*s", colWidth, truncateString(col, colWidth)))
 			}
 			content.WriteString(selectedStyle.Render(headerRow.String()))
 			content.WriteString("\n")
@@ -382,19 +529,20 @@ func (m model) View() string {
 				if i > 0 {
 					separator.WriteString("-+-")
 				}
-				separator.WriteString(strings.Repeat("-", 15))
+				separator.WriteString(strings.Repeat("-", colWidth))
 			}
 			content.WriteString(separator.String())
 			content.WriteString("\n")
 
 			// Add data rows
-			for _, row := range m.tableData {
+			for i := 0; i < displayRows; i++ {
+				row := m.tableData[i]
 				var dataRow strings.Builder
-				for i, cell := range row {
-					if i > 0 {
+				for j, cell := range row {
+					if j > 0 {
 						dataRow.WriteString(" | ")
 					}
-					dataRow.WriteString(fmt.Sprintf("%-15s", truncateString(cell, 15)))
+					dataRow.WriteString(fmt.Sprintf("%-*s", colWidth, truncateString(cell, colWidth)))
 				}
 				content.WriteString(normalStyle.Render(dataRow.String()))
 				content.WriteString("\n")
@@ -414,13 +562,21 @@ func (m model) View() string {
 		content.WriteString("\n\n")
 
 		if len(m.tableData) > 0 {
+			// Limit rows to fit screen
+			visibleRows := m.getVisibleDataRowCount() - 2 // Account for query input
+			displayRows := min(len(m.tableData), visibleRows)
+			
 			// Show query results
+			colWidth := 10 // default minimum width
+			if len(m.columns) > 0 && m.width > 0 {
+				colWidth = max(10, (m.width-len(m.columns)*3)/len(m.columns))
+			}
 			var headerRow strings.Builder
 			for i, col := range m.columns {
 				if i > 0 {
 					headerRow.WriteString(" | ")
 				}
-				headerRow.WriteString(fmt.Sprintf("%-15s", truncateString(col, 15)))
+				headerRow.WriteString(fmt.Sprintf("%-*s", colWidth, truncateString(col, colWidth)))
 			}
 			content.WriteString(selectedStyle.Render(headerRow.String()))
 			content.WriteString("\n")
@@ -430,20 +586,26 @@ func (m model) View() string {
 				if i > 0 {
 					separator.WriteString("-+-")
 				}
-				separator.WriteString(strings.Repeat("-", 15))
+				separator.WriteString(strings.Repeat("-", colWidth))
 			}
 			content.WriteString(separator.String())
 			content.WriteString("\n")
 
-			for _, row := range m.tableData {
+			for i := 0; i < displayRows; i++ {
+				row := m.tableData[i]
 				var dataRow strings.Builder
-				for i, cell := range row {
-					if i > 0 {
+				for j, cell := range row {
+					if j > 0 {
 						dataRow.WriteString(" | ")
 					}
-					dataRow.WriteString(fmt.Sprintf("%-15s", truncateString(cell, 15)))
+					dataRow.WriteString(fmt.Sprintf("%-*s", colWidth, truncateString(cell, colWidth)))
 				}
 				content.WriteString(normalStyle.Render(dataRow.String()))
+				content.WriteString("\n")
+			}
+			
+			if len(m.tableData) > displayRows {
+				content.WriteString(helpStyle.Render(fmt.Sprintf("... and %d more rows", len(m.tableData)-displayRows)))
 				content.WriteString("\n")
 			}
 		}
@@ -452,7 +614,16 @@ func (m model) View() string {
 		content.WriteString(helpStyle.Render("enter: execute query • esc: back • q: quit"))
 	}
 
-	return tableStyle.Render(content.String())
+	// Ensure content fits in screen height
+	lines := strings.Split(content.String(), "\n")
+	maxLines := max(1, m.height-2)
+	if len(lines) > maxLines {
+		lines = lines[:maxLines]
+		content.Reset()
+		content.WriteString(strings.Join(lines, "\n"))
+	}
+
+	return content.String()
 }
 
 func truncateString(s string, maxLen int) string {
@@ -460,6 +631,20 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func main() {

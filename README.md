@@ -4,11 +4,12 @@ A fully-featured terminal user interface for browsing SQLite databases built wit
 
 ## Features
 
-- **Table Browser**: Browse all tables in your SQLite database
+- **Table Browser**: Browse all tables in your SQLite database with pagination
+- **Search Functionality**: Search tables by name using `/` key
 - **Data Viewer**: View table data with pagination (20 rows per page)
 - **SQL Query Interface**: Execute custom SQL queries with parameter support
+- **Responsive Design**: Adapts to terminal size and fits content to screen
 - **Navigation**: Intuitive keyboard navigation
-- **Responsive Design**: Adapts to terminal size
 
 ## Usage
 
@@ -25,13 +26,20 @@ go run main.go sample.db
 
 ### Table List Mode
 - `↑/↓` or `k/j`: Navigate between tables
+- `←/→` or `h/l`: Navigate between table list pages
+- `/`: Start searching tables
 - `Enter`: View selected table data
 - `s`: Switch to SQL query mode
 - `r`: Refresh table list
 - `q` or `Ctrl+C`: Quit
 
+### Search Mode (when searching tables)
+- Type to search table names
+- `Enter` or `Esc`: Finish search
+- `Backspace`: Delete characters
+
 ### Table Data Mode
-- `←/→` or `h/l`: Navigate between pages
+- `←/→` or `h/l`: Navigate between data pages
 - `Esc`: Return to table list
 - `r`: Refresh current table data
 - `q` or `Ctrl+C`: Quit
@@ -45,13 +53,16 @@ go run main.go sample.db
 
 ## Features Implemented
 
-1. **Table Browsing**: Lists all tables in the database with navigation
-2. **Paginated Data View**: Shows table data with pagination (20 rows per page)
-3. **SQL Query Execution**: Execute custom SQL queries and view results
-4. **Error Handling**: Displays database errors gracefully
-5. **Responsive UI**: Clean, styled interface that adapts to terminal size
-6. **Column Information**: Shows column names and handles NULL values
-7. **Navigation**: Intuitive keyboard shortcuts for all operations
+1. **Table Browsing**: Lists all tables in the database with pagination
+2. **Table Search**: Filter tables by name using `/` to search
+3. **Paginated Data View**: Shows table data with pagination (20 rows per page)
+4. **Screen-Aware Display**: Content automatically fits terminal size
+5. **SQL Query Execution**: Execute custom SQL queries and view results
+6. **Error Handling**: Displays database errors gracefully
+7. **Responsive UI**: Clean, styled interface that adapts to terminal size
+8. **Column Information**: Shows column names and handles NULL values
+9. **Navigation**: Intuitive keyboard shortcuts for all operations
+10. **Dynamic Column Width**: Columns adjust to terminal width
 
 ## Sample Database
 
