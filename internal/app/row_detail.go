@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Row Detail Model
 type RowDetailModel struct {
 	Shared    *SharedData
 	rowIndex  int
@@ -69,3 +68,4 @@ func (m *RowDetailModel) View() string {
 
 	return content.String()
 }
+

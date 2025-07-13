@@ -32,7 +32,7 @@ type (
 	ExecuteQueryMsg struct{ Query string }
 )
 
-// Main application model
+// Model is the main application model
 type Model struct {
 	db          *sql.DB
 	currentView tea.Model
@@ -41,7 +41,7 @@ type Model struct {
 	err         error
 }
 
-// Shared data that all models need access to
+// SharedData that all models need access to
 type SharedData struct {
 	DB             *sql.DB
 	Tables         []string
@@ -603,3 +603,4 @@ func (m *Model) getSharedData() *SharedData {
 		return NewSharedData(m.db)
 	}
 }
+

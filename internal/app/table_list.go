@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Table List Model
 type TableListModel struct {
 	Shared        *SharedData
 	searchInput   string
@@ -196,3 +195,4 @@ func (m *TableListModel) View() string {
 
 	return content.String()
 }
+

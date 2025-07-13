@@ -6,7 +6,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Edit Cell Model
 type EditCellModel struct {
 	Shared   *SharedData
 	rowIndex int
@@ -89,3 +88,4 @@ func (m *EditCellModel) View() string {
 
 	return content
 }
+

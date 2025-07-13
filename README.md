@@ -1,6 +1,6 @@
-# SQLite TUI
+# TeaQLite
 
-A fully-featured terminal user interface for browsing SQLite databases built with Bubble Tea v2.
+A colorful-but-minimal terminal user interface for browsing SQLite databases built with Bubble Tea.
 
 ## Features
 
@@ -37,7 +37,7 @@ go run main.go sample.db
 - `Enter`: View selected table data
 - `s`: Switch to SQL query mode
 - `r`: Refresh table list
-- `q` or `Ctrl+C`: Quit
+- `Ctrl+C`: Quit
 
 ### Search Mode (when searching tables)
 
@@ -96,57 +96,3 @@ go run main.go sample.db
 - Type your SQL query (all keys work as input, no conflicts with navigation)
 - `Esc`: Return to table list
 - `q` or `Ctrl+C`: Quit
-
-## Features Implemented
-
-1. **Table Browsing**: Lists all tables in the database with pagination
-2. **Table Search**: Filter tables by name using `/` to search
-3. **Paginated Data View**: Shows table data with pagination (20 rows per page)
-4. **Row Highlighting**: Cursor-based row selection with visual highlighting
-5. **Data Search**: Search within table data across all columns
-6. **Row Detail Modal**: 2-column view showing Column | Value for selected row
-7. **Cell Editing**: Live editing of individual cell values with database updates (works for both table data and query results)
-8. **Smart Query Analysis**: Automatically detects source tables from simple queries to enable editing
-9. **Readline-style Editing**: Full cursor control with word navigation, line navigation, and advanced deletion
-10. **Text Wrapping**: Long values are automatically wrapped in edit and detail views
-11. **Primary Key Detection**: Uses primary keys for reliable row updates
-12. **Screen-Aware Display**: Content automatically fits terminal size
-13. **SQL Query Execution**: Execute custom SQL queries with advanced text editing and dual-focus mode
-14. **Query Results Navigation**: Navigate and interact with query results just like table data
-15. **Error Handling**: Displays database errors gracefully
-16. **Responsive UI**: Clean, styled interface that adapts to terminal size
-17. **Column Information**: Shows column names and handles NULL values
-18. **Navigation**: Intuitive keyboard shortcuts for all operations
-19. **Dynamic Column Width**: Columns adjust to terminal width
-
-## Navigation Flow
-
-```
-Table List → Table Data → Row Detail → Cell Edit
-     ↓           ↓           ↓           ↓
-   Search     Data Search   Field Nav   Value Edit
-     ↓           ↓           ↓           ↓
-SQL Query    Row Select   Cell Select  Save/Cancel
-```
-
-## Sample Database
-
-The included `sample.db` contains:
-
-- `users` table with id, name, email, age columns
-- `products` table with id, name, price, category columns
-
-## Dependencies
-
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI framework
-- [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Styling
-- [go-sqlite3](https://github.com/mattn/go-sqlite3) - SQLite driver
-
-## Database Updates
-
-The application supports live editing of database records:
-
-- Uses primary keys when available for reliable row identification
-- Falls back to full-row matching when no primary key exists
-- Updates are immediately reflected in the interface
-- All changes are committed to the database in real-time

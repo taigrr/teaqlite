@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Query Model
 type QueryModel struct {
 	Shared       *SharedData
 	query        string
@@ -229,3 +228,4 @@ func (m *QueryModel) View() string {
 
 	return content.String()
 }
+

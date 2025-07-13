@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Table Data Model
 type TableDataModel struct {
 	Shared      *SharedData
 	selectedRow int
@@ -203,3 +202,4 @@ func (m *TableDataModel) View() string {
 
 	return content.String()
 }
+
