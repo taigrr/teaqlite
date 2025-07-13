@@ -22,7 +22,7 @@ func newEditCellModel(shared *sharedData, rowIndex, colIndex int) *editCellModel
 	if rowIndex < len(shared.filteredData) && colIndex < len(shared.filteredData[rowIndex]) {
 		originalValue = shared.filteredData[rowIndex][colIndex]
 	}
-	
+
 	return &editCellModel{
 		shared:        shared,
 		rowIndex:      rowIndex,
@@ -126,17 +126,17 @@ func (m *editCellModel) wordLeft(pos int) int {
 	if pos == 0 {
 		return 0
 	}
-	
+
 	// Skip whitespace
 	for pos > 0 && isWhitespace(m.editingValue[pos-1]) {
 		pos--
 	}
-	
+
 	// Skip non-whitespace
 	for pos > 0 && !isWhitespace(m.editingValue[pos-1]) {
 		pos--
 	}
-	
+
 	return pos
 }
 
@@ -145,17 +145,17 @@ func (m *editCellModel) wordRight(pos int) int {
 	if pos >= length {
 		return length
 	}
-	
+
 	// Skip non-whitespace
 	for pos < length && !isWhitespace(m.editingValue[pos]) {
 		pos++
 	}
-	
+
 	// Skip whitespace
 	for pos < length && isWhitespace(m.editingValue[pos]) {
 		pos++
 	}
-	
+
 	return pos
 }
 
@@ -167,13 +167,13 @@ func (m *editCellModel) View() string {
 	if m.colIndex < len(m.shared.columns) {
 		columnName = m.shared.columns[m.colIndex]
 	}
-	
+
 	content.WriteString(titleStyle.Render(fmt.Sprintf("Edit: %s.%s", tableName, columnName)))
 	content.WriteString("\n\n")
-	
+
 	// Calculate available width for text (leave some margin)
 	textWidth := max(20, m.shared.width-4)
-	
+
 	// Wrap original value
 	content.WriteString("Original:")
 	content.WriteString("\n")
@@ -182,13 +182,13 @@ func (m *editCellModel) View() string {
 		content.WriteString("  " + line)
 		content.WriteString("\n")
 	}
-	
+
 	content.WriteString("\n")
-	
+
 	// Wrap new value with cursor
 	content.WriteString("New:")
 	content.WriteString("\n")
-	
+
 	// Display editing value with cursor
 	valueWithCursor := ""
 	if m.cursorPos <= len(m.editingValue) {
@@ -198,13 +198,13 @@ func (m *editCellModel) View() string {
 	} else {
 		valueWithCursor = m.editingValue + "█"
 	}
-	
+
 	newLines := wrapText(valueWithCursor, textWidth)
 	for _, line := range newLines {
 		content.WriteString("  " + line)
 		content.WriteString("\n")
 	}
-	
+
 	content.WriteString("\n")
 	content.WriteString(helpStyle.Render("←/→: move cursor • ctrl+←/→: word nav • home/end: line nav • ctrl+w/k/u: delete • enter: save • esc: cancel"))
 

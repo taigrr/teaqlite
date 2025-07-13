@@ -498,7 +498,7 @@ func max(a, b int) int {
 }
 
 func initialModel(dbPath string) model {
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return model{err: err}
 	}
@@ -533,7 +533,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Add similar updates for other model types as needed
 
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" || msg.String() == "q" {
+		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
 
@@ -606,7 +606,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.err != nil {
-		return errorStyle.Render(fmt.Sprintf("Error: %v\n\nPress 'q' to quit", m.err))
+		return errorStyle.Render(fmt.Sprintf("Error: %v\n\nPress 'ctrl+c' to quit", m.err))
 	}
 	return m.currentView.View()
 }

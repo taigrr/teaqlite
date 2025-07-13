@@ -221,9 +221,8 @@ func (m *tableDataModel) View() string {
 	if m.searching {
 		content.WriteString(helpStyle.Render("Type to search • enter/esc: finish search"))
 	} else {
-		content.WriteString(helpStyle.Render("↑/↓: select row • ←/→: page • /: search • enter: view row • esc: back • r: refresh • q: quit"))
+		content.WriteString(helpStyle.Render("↑/↓: select row • ←/→: page • /: search • enter: view row • esc: back • r: refresh • ctrl+c: quit"))
 	}
 
 	return content.String()
 }
-

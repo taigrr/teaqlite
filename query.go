@@ -17,6 +17,7 @@ type queryModel struct {
 	columns      []string
 	focusOnInput bool // true = input focused, false = results focused
 	selectedRow  int
+	errorMsg     string // Error message to display
 }
 
 func newQueryModel(shared *sharedData) *queryModel {
@@ -42,6 +43,11 @@ func (m *queryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *queryModel) handleInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
+		// Clear error message if present, otherwise go back
+		if m.errorMsg != "" {
+			m.errorMsg = ""
+			return m, nil
+		}
 		return m, func() tea.Msg { return switchToTableListMsg{} }
 
 	case "tab":
@@ -59,7 +65,9 @@ func (m *queryModel) handleInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.focusOnInput {
 			// Execute query when input is focused
 			if err := m.executeQuery(); err != nil {
-				// TODO: Handle error - could set an error field
+				m.errorMsg = err.Error()
+			} else {
+				m.errorMsg = "" // Clear error on successful query
 			}
 		} else {
 			// View row detail when results are focused
@@ -280,6 +288,15 @@ func (m *queryModel) View() string {
 
 	content.WriteString(titleStyle.Render("SQL Query"))
 	content.WriteString("\n\n")
+
+	// Display error modal if there's an error
+	if m.errorMsg != "" {
+		errorBox := errorStyle.Render(fmt.Sprintf("Error: %s", m.errorMsg))
+		content.WriteString(errorBox)
+		content.WriteString("\n\n")
+		content.WriteString(helpStyle.Render("esc: dismiss error"))
+		return content.String()
+	}
 
 	// Display query with cursor and focus indicator
 	if m.focusOnInput {

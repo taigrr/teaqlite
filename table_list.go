@@ -124,7 +124,7 @@ func (m *tableListModel) filterTables() {
 			}
 		}
 	}
-	
+
 	if m.selectedTable >= len(m.shared.filteredTables) {
 		m.selectedTable = 0
 		m.currentPage = 0
@@ -149,12 +149,12 @@ func (m *tableListModel) View() string {
 
 	content.WriteString(titleStyle.Render("SQLite TUI - Tables"))
 	content.WriteString("\n")
-	
+
 	if m.searching {
 		content.WriteString("\nSearch: " + m.searchInput + "_")
 		content.WriteString("\n")
 	} else if m.searchInput != "" {
-		content.WriteString(fmt.Sprintf("\nFiltered by: %s (%d/%d tables)", 
+		content.WriteString(fmt.Sprintf("\nFiltered by: %s (%d/%d tables)",
 			m.searchInput, len(m.shared.filteredTables), len(m.shared.tables)))
 		content.WriteString("\n")
 	}
@@ -170,7 +170,7 @@ func (m *tableListModel) View() string {
 		visibleCount := m.getVisibleCount()
 		startIdx := m.currentPage * visibleCount
 		endIdx := min(startIdx+visibleCount, len(m.shared.filteredTables))
-		
+
 		for i := startIdx; i < endIdx; i++ {
 			table := m.shared.filteredTables[i]
 			if i == m.selectedTable {
@@ -180,9 +180,9 @@ func (m *tableListModel) View() string {
 			}
 			content.WriteString("\n")
 		}
-		
+
 		if len(m.shared.filteredTables) > visibleCount {
-			totalPages := (len(m.shared.filteredTables) - 1) / visibleCount + 1
+			totalPages := (len(m.shared.filteredTables)-1)/visibleCount + 1
 			content.WriteString(fmt.Sprintf("\nPage %d/%d", m.currentPage+1, totalPages))
 		}
 	}
@@ -191,7 +191,7 @@ func (m *tableListModel) View() string {
 	if m.searching {
 		content.WriteString(helpStyle.Render("Type to search • enter/esc: finish search"))
 	} else {
-		content.WriteString(helpStyle.Render("↑/↓: navigate • ←/→: page • /: search • enter: view • s: SQL • r: refresh • q: quit"))
+		content.WriteString(helpStyle.Render("↑/↓: navigate • ←/→: page • /: search • enter: view • s: SQL • r: refresh • ctrl+c: quit"))
 	}
 
 	return content.String()

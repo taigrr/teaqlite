@@ -166,8 +166,7 @@ func (m *rowDetailModel) View() string {
 	}
 
 	content.WriteString("\n")
-	content.WriteString(helpStyle.Render("↑/↓: select field • enter: edit • esc: back • q: quit"))
+	content.WriteString(helpStyle.Render("↑/↓: select field • enter: edit • esc: back • ctrl+c: quit"))
 
 	return content.String()
 }
-
