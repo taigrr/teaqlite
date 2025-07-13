@@ -37,7 +37,7 @@ func (m *editCellModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m *editCellModel) Update(msg tea.Msg) (subModel, tea.Cmd) {
+func (m *editCellModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.handleInput(msg)
@@ -45,7 +45,7 @@ func (m *editCellModel) Update(msg tea.Msg) (subModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m *editCellModel) handleInput(msg tea.KeyMsg) (subModel, tea.Cmd) {
+func (m *editCellModel) handleInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		return m, func() tea.Msg {

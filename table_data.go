@@ -9,10 +9,10 @@ import (
 
 // Table Data Model
 type tableDataModel struct {
-	shared          *sharedData
-	selectedRow     int
-	searchInput     string
-	searching       bool
+	shared      *sharedData
+	selectedRow int
+	searchInput string
+	searching   bool
 }
 
 func newTableDataModel(shared *sharedData) *tableDataModel {
@@ -26,7 +26,7 @@ func (m *tableDataModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m *tableDataModel) Update(msg tea.Msg) (subModel, tea.Cmd) {
+func (m *tableDataModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.searching {
@@ -37,7 +37,7 @@ func (m *tableDataModel) Update(msg tea.Msg) (subModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m *tableDataModel) handleSearchInput(msg tea.KeyMsg) (subModel, tea.Cmd) {
+func (m *tableDataModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "enter":
 		m.searching = false
@@ -56,7 +56,7 @@ func (m *tableDataModel) handleSearchInput(msg tea.KeyMsg) (subModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m *tableDataModel) handleNavigation(msg tea.KeyMsg) (subModel, tea.Cmd) {
+func (m *tableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		return m, func() tea.Msg { return switchToTableListMsg{} }
@@ -124,7 +124,7 @@ func (m *tableDataModel) filterData() {
 			}
 		}
 	}
-	
+
 	if m.selectedRow >= len(m.shared.filteredData) {
 		m.selectedRow = 0
 	}
@@ -143,16 +143,16 @@ func (m *tableDataModel) View() string {
 
 	tableName := m.shared.filteredTables[m.shared.selectedTable]
 	maxPage := max(0, (m.shared.totalRows-1)/pageSize)
-	
-	content.WriteString(titleStyle.Render(fmt.Sprintf("Table: %s (Page %d/%d)", 
+
+	content.WriteString(titleStyle.Render(fmt.Sprintf("Table: %s (Page %d/%d)",
 		tableName, m.shared.currentPage+1, maxPage+1)))
 	content.WriteString("\n")
-	
+
 	if m.searching {
 		content.WriteString("\nSearch data: " + m.searchInput + "_")
 		content.WriteString("\n")
 	} else if m.searchInput != "" {
-		content.WriteString(fmt.Sprintf("\nFiltered by: %s (%d/%d rows)", 
+		content.WriteString(fmt.Sprintf("\nFiltered by: %s (%d/%d rows)",
 			m.searchInput, len(m.shared.filteredData), len(m.shared.tableData)))
 		content.WriteString("\n")
 	}
@@ -167,13 +167,13 @@ func (m *tableDataModel) View() string {
 	} else {
 		visibleRows := m.getVisibleRowCount()
 		displayRows := min(len(m.shared.filteredData), visibleRows)
-		
+
 		// Create table header
 		colWidth := 10
 		if len(m.shared.columns) > 0 && m.shared.width > 0 {
 			colWidth = max(10, (m.shared.width-len(m.shared.columns)*3)/len(m.shared.columns))
 		}
-		
+
 		var headerRow strings.Builder
 		for i, col := range m.shared.columns {
 			if i > 0 {
@@ -196,7 +196,7 @@ func (m *tableDataModel) View() string {
 		content.WriteString("\n")
 
 		// Add data rows with highlighting
-		for i := 0; i < displayRows; i++ {
+		for i := range displayRows {
 			if i >= len(m.shared.filteredData) {
 				break
 			}
@@ -226,3 +226,4 @@ func (m *tableDataModel) View() string {
 
 	return content.String()
 }
+

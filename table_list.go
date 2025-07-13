@@ -28,7 +28,7 @@ func (m *tableListModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m *tableListModel) Update(msg tea.Msg) (subModel, tea.Cmd) {
+func (m *tableListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.searching {
@@ -39,7 +39,7 @@ func (m *tableListModel) Update(msg tea.Msg) (subModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m *tableListModel) handleSearchInput(msg tea.KeyMsg) (subModel, tea.Cmd) {
+func (m *tableListModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "enter":
 		m.searching = false
@@ -58,7 +58,7 @@ func (m *tableListModel) handleSearchInput(msg tea.KeyMsg) (subModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m *tableListModel) handleNavigation(msg tea.KeyMsg) (subModel, tea.Cmd) {
+func (m *tableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "/":
 		m.searching = true

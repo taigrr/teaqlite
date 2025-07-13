@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite" // Import SQLite driver
 )
 
 const (
@@ -18,29 +19,25 @@ const (
 
 // Custom message types
 type (
-	switchToTableListMsg    struct{}
-	switchToTableDataMsg    struct{ tableIndex int }
-	switchToRowDetailMsg    struct{ rowIndex int }
+	switchToTableListMsg          struct{}
+	switchToTableDataMsg          struct{ tableIndex int }
+	switchToRowDetailMsg          struct{ rowIndex int }
 	switchToRowDetailFromQueryMsg struct{ rowIndex int }
-	switchToEditCellMsg     struct{ rowIndex, colIndex int }
-	switchToQueryMsg        struct{}
-	returnToQueryMsg        struct{} // Return to query mode from row detail
-	refreshDataMsg          struct{}
-	updateCellMsg           struct{ rowIndex, colIndex int; value string }
-	executeQueryMsg         struct{ query string }
+	switchToEditCellMsg           struct{ rowIndex, colIndex int }
+	switchToQueryMsg              struct{}
+	returnToQueryMsg              struct{} // Return to query mode from row detail
+	refreshDataMsg                struct{}
+	updateCellMsg                 struct {
+		rowIndex, colIndex int
+		value              string
+	}
+	executeQueryMsg struct{ query string }
 )
-
-// Common interface for all models
-type subModel interface {
-	Update(tea.Msg) (subModel, tea.Cmd)
-	View() string
-	Init() tea.Cmd
-}
 
 // Main application model
 type model struct {
 	db          *sql.DB
-	currentView subModel
+	currentView tea.Model
 	width       int
 	height      int
 	err         error
@@ -60,6 +57,32 @@ type sharedData struct {
 	currentPage    int
 	width          int
 	height         int
+	// Query result context
+	isQueryResult  bool
+	queryTableName string // For simple queries, store the source table
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go-sqlite-tui <database.db>")
+		os.Exit(1)
+	}
+
+	dbPath := os.Args[1]
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		fmt.Printf("Database file '%s' does not exist\n", dbPath)
+		os.Exit(1)
+	}
+
+	m := initialModel(dbPath)
+	if m.err != nil {
+		log.Fatal(m.err)
+	}
+
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func newSharedData(db *sql.DB) *sharedData {
@@ -73,7 +96,8 @@ func newSharedData(db *sql.DB) *sharedData {
 }
 
 func (s *sharedData) loadTables() error {
-	rows, err := s.db.Query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+	query := `SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`
+	rows, err := s.db.Query(query)
 	if err != nil {
 		return err
 	}
@@ -98,7 +122,7 @@ func (s *sharedData) loadTableData() error {
 	}
 
 	tableName := s.filteredTables[s.selectedTable]
-	
+
 	// Get column info and primary keys
 	rows, err := s.db.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
 	if err != nil {
@@ -113,7 +137,7 @@ func (s *sharedData) loadTableData() error {
 		var name, dataType string
 		var notNull, pk int
 		var defaultValue sql.NullString
-		
+
 		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err != nil {
 			return err
 		}
@@ -133,7 +157,7 @@ func (s *sharedData) loadTableData() error {
 	// Get paginated data
 	offset := s.currentPage * pageSize
 	dataQuery := fmt.Sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", tableName, pageSize, offset)
-	
+
 	rows, err = s.db.Query(dataQuery)
 	if err != nil {
 		return err
@@ -162,9 +186,14 @@ func (s *sharedData) loadTableData() error {
 		}
 		s.tableData = append(s.tableData, row)
 	}
-	
+
 	s.filteredData = make([][]string, len(s.tableData))
 	copy(s.filteredData, s.tableData)
+
+	// Reset query result context since this is regular table data
+	s.isQueryResult = false
+	s.queryTableName = ""
+
 	return nil
 }
 
@@ -172,51 +201,83 @@ func (s *sharedData) updateCell(rowIndex, colIndex int, newValue string) error {
 	if rowIndex >= len(s.filteredData) || colIndex >= len(s.columns) {
 		return fmt.Errorf("invalid row or column index")
 	}
-	
-	tableName := s.filteredTables[s.selectedTable]
-	columnName := s.columns[colIndex]
-	
-	// Build WHERE clause using primary keys or all columns if no primary key
-	var whereClause strings.Builder
-	var args []any
-	
-	if len(s.primaryKeys) > 0 {
-		for i, pkCol := range s.primaryKeys {
-			if i > 0 {
-				whereClause.WriteString(" AND ")
-			}
-			pkIndex := -1
-			for j, col := range s.columns {
-				if col == pkCol {
-					pkIndex = j
-					break
-				}
-			}
-			if pkIndex >= 0 {
-				whereClause.WriteString(fmt.Sprintf("%s = ?", pkCol))
-				args = append(args, s.filteredData[rowIndex][pkIndex])
+
+	var tableName string
+	var err error
+
+	if s.isQueryResult {
+		// For query results, try to determine the source table
+		if s.queryTableName != "" {
+			tableName = s.queryTableName
+		} else {
+			// Try to infer table from column names and data
+			tableName, err = s.inferTableFromQueryResult(rowIndex, colIndex)
+			if err != nil {
+				return fmt.Errorf("cannot determine source table for query result: %v", err)
 			}
 		}
 	} else {
-		for i, col := range s.columns {
+		// For regular table data
+		tableName = s.filteredTables[s.selectedTable]
+	}
+
+	columnName := s.columns[colIndex]
+
+	// Get table info for the target table to find primary keys
+	tableColumns, tablePrimaryKeys, err := s.getTableInfo(tableName)
+	if err != nil {
+		return fmt.Errorf("failed to get table info for %s: %v", tableName, err)
+	}
+
+	// Build WHERE clause using primary keys or all columns if no primary key
+	var whereClause strings.Builder
+	var args []any
+
+	if len(tablePrimaryKeys) > 0 {
+		// Use primary keys for WHERE clause
+		for i, pkCol := range tablePrimaryKeys {
 			if i > 0 {
 				whereClause.WriteString(" AND ")
 			}
+
+			// Find the value for this primary key in our data
+			pkValue, err := s.findColumnValue(rowIndex, pkCol, tableColumns)
+			if err != nil {
+				return fmt.Errorf("failed to find primary key value for %s: %v", pkCol, err)
+			}
+
+			whereClause.WriteString(fmt.Sprintf("%s = ?", pkCol))
+			args = append(args, pkValue)
+		}
+	} else {
+		// Use all columns for WHERE clause (less reliable but works)
+		for i, col := range tableColumns {
+			if i > 0 {
+				whereClause.WriteString(" AND ")
+			}
+
+			colValue, err := s.findColumnValue(rowIndex, col, tableColumns)
+			if err != nil {
+				return fmt.Errorf("failed to find column value for %s: %v", col, err)
+			}
+
 			whereClause.WriteString(fmt.Sprintf("%s = ?", col))
-			args = append(args, s.filteredData[rowIndex][i])
+			args = append(args, colValue)
 		}
 	}
-	
+
+	// Execute UPDATE
 	updateQuery := fmt.Sprintf("UPDATE %s SET %s = ? WHERE %s", tableName, columnName, whereClause.String())
 	args = append([]any{newValue}, args...)
-	
-	_, err := s.db.Exec(updateQuery, args...)
+
+	_, err = s.db.Exec(updateQuery, args...)
 	if err != nil {
 		return err
 	}
-	
+
 	// Update local data
 	s.filteredData[rowIndex][colIndex] = newValue
+	// Also update the original data if it exists
 	for i, row := range s.tableData {
 		if len(row) > colIndex {
 			match := true
@@ -232,8 +293,122 @@ func (s *sharedData) updateCell(rowIndex, colIndex int, newValue string) error {
 			}
 		}
 	}
-	
+
 	return nil
+}
+
+// Helper function to get table info
+func (s *sharedData) getTableInfo(tableName string) ([]string, []string, error) {
+	rows, err := s.db.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+
+	var columns []string
+	var primaryKeys []string
+
+	for rows.Next() {
+		var cid int
+		var name, dataType string
+		var notNull, pk int
+		var defaultValue sql.NullString
+
+		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err != nil {
+			return nil, nil, err
+		}
+		columns = append(columns, name)
+		if pk == 1 {
+			primaryKeys = append(primaryKeys, name)
+		}
+	}
+
+	return columns, primaryKeys, nil
+}
+
+// Helper function to find a column value in the current row
+func (s *sharedData) findColumnValue(rowIndex int, columnName string, _ []string) (string, error) {
+	// First try to find it in our current columns (for query results)
+	for i, col := range s.columns {
+		if col == columnName && i < len(s.filteredData[rowIndex]) {
+			return s.filteredData[rowIndex][i], nil
+		}
+	}
+
+	// If not found, this might be a column that's not in the query result
+	// We'll need to query the database to get the current value
+	if s.isQueryResult && len(s.primaryKeys) > 0 {
+		// Build a query to get the missing column value using available primary keys
+		var whereClause strings.Builder
+		var args []any
+
+		for i, pkCol := range s.primaryKeys {
+			if i > 0 {
+				whereClause.WriteString(" AND ")
+			}
+
+			// Find primary key value in our data
+			pkIndex := -1
+			for j, col := range s.columns {
+				if col == pkCol {
+					pkIndex = j
+					break
+				}
+			}
+
+			if pkIndex >= 0 {
+				whereClause.WriteString(fmt.Sprintf("%s = ?", pkCol))
+				args = append(args, s.filteredData[rowIndex][pkIndex])
+			}
+		}
+
+		if whereClause.Len() > 0 {
+			tableName := s.queryTableName
+			if tableName == "" {
+				// Try to infer table name
+				tableName, _ = s.inferTableFromQueryResult(rowIndex, 0)
+			}
+
+			query := fmt.Sprintf("SELECT %s FROM %s WHERE %s", columnName, tableName, whereClause.String())
+			var value string
+			err := s.db.QueryRow(query, args...).Scan(&value)
+			if err != nil {
+				return "", err
+			}
+			return value, nil
+		}
+	}
+
+	return "", fmt.Errorf("column %s not found in current data", columnName)
+}
+
+// Helper function to try to infer the source table from query results
+func (s *sharedData) inferTableFromQueryResult(_, _ int) (string, error) {
+	// This is a simple heuristic - try to find a table that has all our columns
+	for _, tableName := range s.tables {
+		tableColumns, _, err := s.getTableInfo(tableName)
+		if err != nil {
+			continue
+		}
+
+		// Check if this table has all our columns
+		hasAllColumns := true
+		for _, queryCol := range s.columns {
+			found := slices.Contains(tableColumns, queryCol)
+			if !found {
+				hasAllColumns = false
+				break
+			}
+		}
+
+		if hasAllColumns {
+			// Cache this for future use
+			s.queryTableName = tableName
+			return tableName, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not infer source table from query result")
 }
 
 // Styles
@@ -272,13 +447,13 @@ func wrapText(text string, width int) []string {
 	if width <= 0 {
 		return []string{text}
 	}
-	
+
 	var lines []string
 	words := strings.Fields(text)
 	if len(words) == 0 {
 		return []string{text}
 	}
-	
+
 	currentLine := ""
 	for _, word := range words {
 		if len(currentLine)+len(word)+1 > width {
@@ -300,11 +475,11 @@ func wrapText(text string, width int) []string {
 			}
 		}
 	}
-	
+
 	if currentLine != "" {
 		lines = append(lines, currentLine)
 	}
-	
+
 	return lines
 }
 
@@ -452,28 +627,5 @@ func (m model) getSharedData() *sharedData {
 	default:
 		// Fallback - create new shared data
 		return newSharedData(m.db)
-	}
-}
-
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: go-sqlite-tui <database.db>")
-		os.Exit(1)
-	}
-
-	dbPath := os.Args[1]
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		fmt.Printf("Database file '%s' does not exist\n", dbPath)
-		os.Exit(1)
-	}
-
-	m := initialModel(dbPath)
-	if m.err != nil {
-		log.Fatal(m.err)
-	}
-
-	p := tea.NewProgram(m, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		log.Fatal(err)
 	}
 }

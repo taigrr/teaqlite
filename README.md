@@ -82,8 +82,9 @@ go run main.go sample.db
   - `Tab`: Switch focus to results (when available)
 - **Results Focus**:
   - `↑/↓` or `k/j`: Navigate between result rows
-  - `Enter`: View selected row in detail modal
+  - `Enter`: View selected row in detail modal (editable for simple queries)
   - `Tab`: Switch focus back to query input
+- **Note**: Query results from simple single-table queries can be edited; complex queries (JOINs, etc.) are automatically detected and handled safely
 - Type your SQL query (all keys work as input, no conflicts with navigation)
 - `Esc`: Return to table list
 - `q` or `Ctrl+C`: Quit
@@ -96,8 +97,9 @@ go run main.go sample.db
 4. **Row Highlighting**: Cursor-based row selection with visual highlighting
 5. **Data Search**: Search within table data across all columns
 6. **Row Detail Modal**: 2-column view showing Column | Value for selected row
-7. **Cell Editing**: Live editing of individual cell values with database updates
-8. **Readline-style Editing**: Full cursor control with word navigation, line navigation, and advanced deletion
+7. **Cell Editing**: Live editing of individual cell values with database updates (works for both table data and query results)
+8. **Smart Query Analysis**: Automatically detects source tables from simple queries to enable editing
+9. **Readline-style Editing**: Full cursor control with word navigation, line navigation, and advanced deletion
 9. **Text Wrapping**: Long values are automatically wrapped in edit and detail views
 10. **Primary Key Detection**: Uses primary keys for reliable row updates
 11. **Screen-Aware Display**: Content automatically fits terminal size

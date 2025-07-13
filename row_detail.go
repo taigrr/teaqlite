@@ -28,7 +28,7 @@ func (m *rowDetailModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m *rowDetailModel) Update(msg tea.Msg) (subModel, tea.Cmd) {
+func (m *rowDetailModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.handleNavigation(msg)
@@ -36,7 +36,7 @@ func (m *rowDetailModel) Update(msg tea.Msg) (subModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m *rowDetailModel) handleNavigation(msg tea.KeyMsg) (subModel, tea.Cmd) {
+func (m *rowDetailModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		if m.fromQuery {
@@ -48,8 +48,8 @@ func (m *rowDetailModel) handleNavigation(msg tea.KeyMsg) (subModel, tea.Cmd) {
 		}
 
 	case "enter":
-		if len(m.shared.filteredData) > 0 && m.rowIndex < len(m.shared.filteredData) && 
-		   m.selectedCol < len(m.shared.columns) {
+		if len(m.shared.filteredData) > 0 && m.rowIndex < len(m.shared.filteredData) &&
+			m.selectedCol < len(m.shared.columns) {
 			return m, func() tea.Msg {
 				return switchToEditCellMsg{rowIndex: m.rowIndex, colIndex: m.selectedCol}
 			}
@@ -79,55 +79,59 @@ func (m *rowDetailModel) getVisibleRowCount() int {
 func (m *rowDetailModel) View() string {
 	var content strings.Builder
 
-	tableName := m.shared.filteredTables[m.shared.selectedTable]
-	content.WriteString(titleStyle.Render(fmt.Sprintf("Row Detail: %s", tableName)))
+	if m.fromQuery {
+		content.WriteString(titleStyle.Render("Row Detail: Query Result"))
+	} else {
+		tableName := m.shared.filteredTables[m.shared.selectedTable]
+		content.WriteString(titleStyle.Render(fmt.Sprintf("Row Detail: %s", tableName)))
+	}
 	content.WriteString("\n\n")
 
 	if m.rowIndex >= len(m.shared.filteredData) {
 		content.WriteString("Invalid row selection")
 	} else {
 		row := m.shared.filteredData[m.rowIndex]
-		
+
 		// Show as 2-column table: Column | Value
 		colWidth := max(15, m.shared.width/3)
 		valueWidth := max(20, m.shared.width-colWidth-5)
-		
+
 		// Header
 		headerRow := fmt.Sprintf("%-*s | %-*s", colWidth, "Column", valueWidth, "Value")
 		content.WriteString(selectedStyle.Render(headerRow))
 		content.WriteString("\n")
-		
+
 		// Separator
 		separator := strings.Repeat("-", colWidth) + "-+-" + strings.Repeat("-", valueWidth)
 		content.WriteString(separator)
 		content.WriteString("\n")
-		
+
 		// Data rows
 		visibleRows := m.getVisibleRowCount()
 		displayRows := min(len(m.shared.columns), visibleRows)
-		
-		for i := 0; i < displayRows; i++ {
+
+		for i := range displayRows {
 			if i >= len(m.shared.columns) || i >= len(row) {
 				break
 			}
-			
+
 			col := m.shared.columns[i]
 			val := row[i]
-			
+
 			// For long values, show them wrapped on multiple lines
 			if len(val) > valueWidth {
 				// First line with column name
-				firstLine := fmt.Sprintf("%-*s | %-*s", 
+				firstLine := fmt.Sprintf("%-*s | %-*s",
 					colWidth, truncateString(col, colWidth),
 					valueWidth, truncateString(val, valueWidth))
-				
+
 				if i == m.selectedCol {
 					content.WriteString(selectedStyle.Render(firstLine))
 				} else {
 					content.WriteString(normalStyle.Render(firstLine))
 				}
 				content.WriteString("\n")
-				
+
 				// Additional lines for wrapped text (if there's space)
 				if len(val) > valueWidth && visibleRows > displayRows {
 					wrappedLines := wrapText(val, valueWidth)
@@ -135,7 +139,7 @@ func (m *rowDetailModel) View() string {
 						if j >= 2 { // Limit to 3 total lines per field
 							break
 						}
-						continuationLine := fmt.Sprintf("%-*s | %-*s", 
+						continuationLine := fmt.Sprintf("%-*s | %-*s",
 							colWidth, "", valueWidth, wrappedLine)
 						if i == m.selectedCol {
 							content.WriteString(selectedStyle.Render(continuationLine))
@@ -147,10 +151,10 @@ func (m *rowDetailModel) View() string {
 				}
 			} else {
 				// Normal single line
-				dataRow := fmt.Sprintf("%-*s | %-*s", 
+				dataRow := fmt.Sprintf("%-*s | %-*s",
 					colWidth, truncateString(col, colWidth),
 					valueWidth, val)
-				
+
 				if i == m.selectedCol {
 					content.WriteString(selectedStyle.Render(dataRow))
 				} else {
@@ -166,3 +170,4 @@ func (m *rowDetailModel) View() string {
 
 	return content.String()
 }
+
