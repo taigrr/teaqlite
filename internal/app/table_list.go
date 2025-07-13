@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -8,27 +8,27 @@ import (
 )
 
 // Table List Model
-type tableListModel struct {
-	shared        *sharedData
+type TableListModel struct {
+	Shared        *SharedData
 	searchInput   string
 	searching     bool
 	selectedTable int
 	currentPage   int
 }
 
-func newTableListModel(shared *sharedData) *tableListModel {
-	return &tableListModel{
-		shared:        shared,
+func NewTableListModel(shared *SharedData) *TableListModel {
+	return &TableListModel{
+		Shared:        shared,
 		selectedTable: 0,
 		currentPage:   0,
 	}
 }
 
-func (m *tableListModel) Init() tea.Cmd {
+func (m *TableListModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m *tableListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *TableListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.searching {
@@ -39,7 +39,7 @@ func (m *tableListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *tableListModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *TableListModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "enter":
 		m.searching = false
@@ -58,7 +58,7 @@ func (m *tableListModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
-func (m *tableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *TableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "/":
 		m.searching = true
@@ -66,17 +66,17 @@ func (m *tableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case "enter":
-		if len(m.shared.filteredTables) > 0 {
+		if len(m.Shared.FilteredTables) > 0 {
 			return m, func() tea.Msg {
-				return switchToTableDataMsg{tableIndex: m.selectedTable}
+				return SwitchToTableDataMsg{TableIndex: m.selectedTable}
 			}
 		}
 
 	case "s":
-		return m, func() tea.Msg { return switchToQueryMsg{} }
+		return m, func() tea.Msg { return SwitchToQueryMsg{} }
 
 	case "r":
-		if err := m.shared.loadTables(); err == nil {
+		if err := m.Shared.LoadTables(); err == nil {
 			m.filterTables()
 		}
 
@@ -87,7 +87,7 @@ func (m *tableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "down", "j":
-		if m.selectedTable < len(m.shared.filteredTables)-1 {
+		if m.selectedTable < len(m.Shared.FilteredTables)-1 {
 			m.selectedTable++
 			m.adjustPage()
 		}
@@ -99,55 +99,55 @@ func (m *tableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "right", "l":
-		maxPage := (len(m.shared.filteredTables) - 1) / m.getVisibleCount()
+		maxPage := (len(m.Shared.FilteredTables) - 1) / m.getVisibleCount()
 		if m.currentPage < maxPage {
 			m.currentPage++
 			m.selectedTable = m.currentPage * m.getVisibleCount()
-			if m.selectedTable >= len(m.shared.filteredTables) {
-				m.selectedTable = len(m.shared.filteredTables) - 1
+			if m.selectedTable >= len(m.Shared.FilteredTables) {
+				m.selectedTable = len(m.Shared.FilteredTables) - 1
 			}
 		}
 	}
 	return m, nil
 }
 
-func (m *tableListModel) filterTables() {
+func (m *TableListModel) filterTables() {
 	if m.searchInput == "" {
-		m.shared.filteredTables = make([]string, len(m.shared.tables))
-		copy(m.shared.filteredTables, m.shared.tables)
+		m.Shared.FilteredTables = make([]string, len(m.Shared.Tables))
+		copy(m.Shared.FilteredTables, m.Shared.Tables)
 	} else {
-		m.shared.filteredTables = []string{}
+		m.Shared.FilteredTables = []string{}
 		searchLower := strings.ToLower(m.searchInput)
-		for _, table := range m.shared.tables {
+		for _, table := range m.Shared.Tables {
 			if strings.Contains(strings.ToLower(table), searchLower) {
-				m.shared.filteredTables = append(m.shared.filteredTables, table)
+				m.Shared.FilteredTables = append(m.Shared.FilteredTables, table)
 			}
 		}
 	}
 
-	if m.selectedTable >= len(m.shared.filteredTables) {
+	if m.selectedTable >= len(m.Shared.FilteredTables) {
 		m.selectedTable = 0
 		m.currentPage = 0
 	}
 }
 
-func (m *tableListModel) getVisibleCount() int {
+func (m *TableListModel) getVisibleCount() int {
 	reservedLines := 8
 	if m.searching {
 		reservedLines += 2
 	}
-	return max(1, m.shared.height-reservedLines)
+	return Max(1, m.Shared.Height-reservedLines)
 }
 
-func (m *tableListModel) adjustPage() {
+func (m *TableListModel) adjustPage() {
 	visibleCount := m.getVisibleCount()
 	m.currentPage = m.selectedTable / visibleCount
 }
 
-func (m *tableListModel) View() string {
+func (m *TableListModel) View() string {
 	var content strings.Builder
 
-	content.WriteString(titleStyle.Render("SQLite TUI - Tables"))
+	content.WriteString(TitleStyle.Render("SQLite TUI - Tables"))
 	content.WriteString("\n")
 
 	if m.searching {
@@ -155,12 +155,12 @@ func (m *tableListModel) View() string {
 		content.WriteString("\n")
 	} else if m.searchInput != "" {
 		content.WriteString(fmt.Sprintf("\nFiltered by: %s (%d/%d tables)",
-			m.searchInput, len(m.shared.filteredTables), len(m.shared.tables)))
+			m.searchInput, len(m.Shared.FilteredTables), len(m.Shared.Tables)))
 		content.WriteString("\n")
 	}
 	content.WriteString("\n")
 
-	if len(m.shared.filteredTables) == 0 {
+	if len(m.Shared.FilteredTables) == 0 {
 		if m.searchInput != "" {
 			content.WriteString("No tables match your search")
 		} else {
@@ -169,29 +169,29 @@ func (m *tableListModel) View() string {
 	} else {
 		visibleCount := m.getVisibleCount()
 		startIdx := m.currentPage * visibleCount
-		endIdx := min(startIdx+visibleCount, len(m.shared.filteredTables))
+		endIdx := Min(startIdx+visibleCount, len(m.Shared.FilteredTables))
 
 		for i := startIdx; i < endIdx; i++ {
-			table := m.shared.filteredTables[i]
+			table := m.Shared.FilteredTables[i]
 			if i == m.selectedTable {
-				content.WriteString(selectedStyle.Render(fmt.Sprintf("> %s", table)))
+				content.WriteString(SelectedStyle.Render(fmt.Sprintf("> %s", table)))
 			} else {
-				content.WriteString(normalStyle.Render(fmt.Sprintf("  %s", table)))
+				content.WriteString(NormalStyle.Render(fmt.Sprintf("  %s", table)))
 			}
 			content.WriteString("\n")
 		}
 
-		if len(m.shared.filteredTables) > visibleCount {
-			totalPages := (len(m.shared.filteredTables)-1)/visibleCount + 1
+		if len(m.Shared.FilteredTables) > visibleCount {
+			totalPages := (len(m.Shared.FilteredTables)-1)/visibleCount + 1
 			content.WriteString(fmt.Sprintf("\nPage %d/%d", m.currentPage+1, totalPages))
 		}
 	}
 
 	content.WriteString("\n")
 	if m.searching {
-		content.WriteString(helpStyle.Render("Type to search • enter/esc: finish search"))
+		content.WriteString(HelpStyle.Render("Type to search • enter/esc: finish search"))
 	} else {
-		content.WriteString(helpStyle.Render("↑/↓: navigate • ←/→: page • /: search • enter: view • s: SQL • r: refresh • ctrl+c: quit"))
+		content.WriteString(HelpStyle.Render("↑/↓: navigate • ←/→: page • /: search • enter: view • s: SQL • r: refresh • ctrl+c: quit"))
 	}
 
 	return content.String()

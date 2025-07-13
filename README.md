@@ -22,6 +22,7 @@ go run main.go <database.db>
 ```
 
 Example with the included sample database:
+
 ```bash
 go run main.go sample.db
 ```
@@ -29,6 +30,7 @@ go run main.go sample.db
 ## Keyboard Controls
 
 ### Table List Mode
+
 - `↑/↓` or `k/j`: Navigate between tables
 - `←/→` or `h/l`: Navigate between table list pages
 - `/`: Start searching tables
@@ -38,11 +40,13 @@ go run main.go sample.db
 - `q` or `Ctrl+C`: Quit
 
 ### Search Mode (when searching tables)
+
 - Type to search table names
 - `Enter` or `Esc`: Finish search
 - `Backspace`: Delete characters
 
 ### Table Data Mode
+
 - `↑/↓` or `k/j`: Navigate between data rows (with highlighting)
 - `←/→` or `h/l`: Navigate between data pages
 - `/`: Start searching within table data
@@ -52,17 +56,20 @@ go run main.go sample.db
 - `q` or `Ctrl+C`: Quit
 
 ### Data Search Mode (when searching within table data)
+
 - Type to search within all columns of the table
 - `Enter` or `Esc`: Finish search
 - `Backspace`: Delete characters
 
 ### Row Detail Modal
+
 - `↑/↓` or `k/j`: Navigate between fields (Column | Value format)
 - `Enter`: Edit selected field value
 - `Esc`: Return to table data view
 - `q` or `Ctrl+C`: Quit
 
 ### Cell Edit Mode
+
 - **Readline-style Editing**: Full cursor control and advanced editing
 - **Cursor Movement**: `←/→` arrows, `Ctrl+←/→` for word navigation
 - **Line Navigation**: `Home`/`Ctrl+A` (start), `End`/`Ctrl+E` (end)
@@ -72,10 +79,11 @@ go run main.go sample.db
 - `Esc`: Cancel editing and return to row detail
 
 ### SQL Query Mode
+
 - **Advanced Text Editing**: Full readline-style editing controls
 - **Dual Focus Mode**: Switch between query input and results with `Tab`
 - **Query Input Focus**:
-  - **Cursor Movement**: `←/→` arrows, `Ctrl+←/→` for word navigation  
+  - **Cursor Movement**: `←/→` arrows, `Ctrl+←/→` for word navigation
   - **Line Navigation**: `Home`/`Ctrl+A` (start), `End`/`Ctrl+E` (end)
   - **Deletion**: `Backspace`, `Delete`/`Ctrl+D`, `Ctrl+W` (word), `Ctrl+K` (to end), `Ctrl+U` (to start)
   - `Enter`: Execute query
@@ -100,16 +108,16 @@ go run main.go sample.db
 7. **Cell Editing**: Live editing of individual cell values with database updates (works for both table data and query results)
 8. **Smart Query Analysis**: Automatically detects source tables from simple queries to enable editing
 9. **Readline-style Editing**: Full cursor control with word navigation, line navigation, and advanced deletion
-9. **Text Wrapping**: Long values are automatically wrapped in edit and detail views
-10. **Primary Key Detection**: Uses primary keys for reliable row updates
-11. **Screen-Aware Display**: Content automatically fits terminal size
-12. **SQL Query Execution**: Execute custom SQL queries with advanced text editing and dual-focus mode
-13. **Query Results Navigation**: Navigate and interact with query results just like table data
-14. **Error Handling**: Displays database errors gracefully
-15. **Responsive UI**: Clean, styled interface that adapts to terminal size
-16. **Column Information**: Shows column names and handles NULL values
-17. **Navigation**: Intuitive keyboard shortcuts for all operations
-18. **Dynamic Column Width**: Columns adjust to terminal width
+10. **Text Wrapping**: Long values are automatically wrapped in edit and detail views
+11. **Primary Key Detection**: Uses primary keys for reliable row updates
+12. **Screen-Aware Display**: Content automatically fits terminal size
+13. **SQL Query Execution**: Execute custom SQL queries with advanced text editing and dual-focus mode
+14. **Query Results Navigation**: Navigate and interact with query results just like table data
+15. **Error Handling**: Displays database errors gracefully
+16. **Responsive UI**: Clean, styled interface that adapts to terminal size
+17. **Column Information**: Shows column names and handles NULL values
+18. **Navigation**: Intuitive keyboard shortcuts for all operations
+19. **Dynamic Column Width**: Columns adjust to terminal width
 
 ## Navigation Flow
 
@@ -124,6 +132,7 @@ SQL Query    Row Select   Cell Select  Save/Cancel
 ## Sample Database
 
 The included `sample.db` contains:
+
 - `users` table with id, name, email, age columns
 - `products` table with id, name, price, category columns
 
@@ -136,6 +145,7 @@ The included `sample.db` contains:
 ## Database Updates
 
 The application supports live editing of database records:
+
 - Uses primary keys when available for reliable row identification
 - Falls back to full-row matching when no primary key exists
 - Updates are immediately reflected in the interface
