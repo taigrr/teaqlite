@@ -165,9 +165,16 @@ func (m *RowDetailModel) View() string {
 		}
 
 		value := row[i]
-		if len(value) > 50 {
+		// Calculate available width for value display
+		// Account for column name, ": ", and indentation
+		availableWidth := m.Shared.Width - len(col) - 4 // 4 for ": " and "> " prefix
+		if availableWidth < 20 {
+			availableWidth = 20 // Minimum width
+		}
+		
+		if len(value) > availableWidth {
 			// Wrap long values
-			lines := WrapText(value, 50)
+			lines := WrapText(value, availableWidth)
 			value = strings.Join(lines, "\n    ")
 		}
 

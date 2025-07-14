@@ -588,11 +588,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		// Update current view with new dimensions
-		if tableList, ok := m.currentView.(*TableListModel); ok {
-			tableList.Shared.Width = m.width
-			tableList.Shared.Height = m.height
+		switch v := m.currentView.(type) {
+		case *TableListModel:
+			v.Shared.Width = m.width
+			v.Shared.Height = m.height
+		case *TableDataModel:
+			v.Shared.Width = m.width
+			v.Shared.Height = m.height
+		case *RowDetailModel:
+			v.Shared.Width = m.width
+			v.Shared.Height = m.height
+		case *EditCellModel:
+			v.Shared.Width = m.width
+			v.Shared.Height = m.height
+		case *QueryModel:
+			v.Shared.Width = m.width
+			v.Shared.Height = m.height
 		}
-		// Add similar updates for other model types as needed
 
 	case tea.KeyMsg:
 		switch {
