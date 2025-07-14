@@ -202,4 +202,3 @@ func (m *TableDataModel) View() string {
 
 	return content.String()
 }
-

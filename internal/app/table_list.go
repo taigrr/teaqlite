@@ -195,4 +195,3 @@ func (m *TableListModel) View() string {
 
 	return content.String()
 }
-

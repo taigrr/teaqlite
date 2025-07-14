@@ -25,7 +25,7 @@ var rootCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dbPath = args[0]
-		
+
 		if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 			return fmt.Errorf("database file '%s' does not exist", dbPath)
 		}

@@ -8,15 +8,17 @@ import (
 )
 
 type RowDetailModel struct {
-	Shared    *SharedData
-	rowIndex  int
-	FromQuery bool
+	Shared      *SharedData
+	rowIndex    int
+	selectedCol int
+	FromQuery   bool
 }
 
 func NewRowDetailModel(shared *SharedData, rowIndex int) *RowDetailModel {
 	return &RowDetailModel{
-		Shared:   shared,
-		rowIndex: rowIndex,
+		Shared:      shared,
+		rowIndex:    rowIndex,
+		selectedCol: 0,
 	}
 }
 
@@ -35,10 +37,20 @@ func (m *RowDetailModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return SwitchToTableDataMsg{TableIndex: m.Shared.SelectedTable} }
 
 		case "e":
-			if len(m.Shared.FilteredData) > m.rowIndex && len(m.Shared.Columns) > 0 {
+			if len(m.Shared.FilteredData) > m.rowIndex && len(m.Shared.Columns) > m.selectedCol {
 				return m, func() tea.Msg {
-					return SwitchToEditCellMsg{RowIndex: m.rowIndex, ColIndex: 0}
+					return SwitchToEditCellMsg{RowIndex: m.rowIndex, ColIndex: m.selectedCol}
 				}
+			}
+
+		case "up", "k":
+			if m.selectedCol > 0 {
+				m.selectedCol--
+			}
+
+		case "down", "j":
+			if m.selectedCol < len(m.Shared.Columns)-1 {
+				m.selectedCol++
 			}
 		}
 	}
@@ -56,16 +68,23 @@ func (m *RowDetailModel) View() string {
 		return content.String()
 	}
 
+	// Show current row position
+	content.WriteString(fmt.Sprintf("Row %d of %d\n\n", m.rowIndex+1, len(m.Shared.FilteredData)))
+
 	row := m.Shared.FilteredData[m.rowIndex]
 	for i, col := range m.Shared.Columns {
 		if i < len(row) {
-			content.WriteString(fmt.Sprintf("%s: %s\n", col, row[i]))
+			if i == m.selectedCol {
+				content.WriteString(SelectedStyle.Render(fmt.Sprintf("> %s: %s", col, row[i])))
+			} else {
+				content.WriteString(NormalStyle.Render(fmt.Sprintf("  %s: %s", col, row[i])))
+			}
+			content.WriteString("\n")
 		}
 	}
 
 	content.WriteString("\n")
-	content.WriteString(HelpStyle.Render("e: edit • q: back"))
+	content.WriteString(HelpStyle.Render("↑/↓: navigate columns • e: edit • q: back"))
 
 	return content.String()
 }
-

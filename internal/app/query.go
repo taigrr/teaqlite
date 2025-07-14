@@ -105,9 +105,121 @@ func (m *QueryModel) handleResultsNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	return m, nil
 }
 
+func (m *QueryModel) ensureIDColumns(query string) string {
+	// Convert to lowercase for easier parsing
+	lowerQuery := strings.ToLower(strings.TrimSpace(query))
+
+	// Only modify SELECT statements
+	if !strings.HasPrefix(lowerQuery, "select") {
+		return query
+	}
+
+	// Extract table name from FROM clause
+	tableName := m.extractTableName(query)
+	if tableName == "" {
+		return query // Can't determine table, return original query
+	}
+
+	// Get primary key columns for this table
+	primaryKeys := m.getTablePrimaryKeys(tableName)
+	if len(primaryKeys) == 0 {
+		return query // No primary keys found
+	}
+
+	// Check if any primary key columns are already in the query
+	for _, pk := range primaryKeys {
+		if strings.Contains(lowerQuery, strings.ToLower(pk)) {
+			return query // Primary key already included
+		}
+	}
+
+	// Check if it's a SELECT * query
+	if strings.Contains(lowerQuery, "select *") {
+		return query // SELECT * already includes all columns
+	}
+
+	// Add primary key columns to the SELECT clause
+	selectIndex := strings.Index(lowerQuery, "select")
+	fromIndex := strings.Index(lowerQuery, "from")
+
+	if selectIndex == -1 || fromIndex == -1 || fromIndex <= selectIndex {
+		return query // Malformed query
+	}
+
+	// Extract the column list
+	selectClause := strings.TrimSpace(query[selectIndex+6 : fromIndex])
+
+	// Add primary keys to the beginning
+	var pkList []string
+	for _, pk := range primaryKeys {
+		pkList = append(pkList, pk)
+	}
+
+	newSelectClause := strings.Join(pkList, ", ") + ", " + selectClause
+
+	// Reconstruct the query
+	return "SELECT " + newSelectClause + " " + query[fromIndex:]
+}
+
+func (m *QueryModel) extractTableName(query string) string {
+	lowerQuery := strings.ToLower(query)
+
+	// Find FROM keyword
+	fromIndex := strings.Index(lowerQuery, "from")
+	if fromIndex == -1 {
+		return ""
+	}
+
+	// Extract everything after FROM
+	afterFrom := strings.TrimSpace(query[fromIndex+4:])
+
+	// Split by whitespace and take the first word (table name)
+	parts := strings.Fields(afterFrom)
+	if len(parts) == 0 {
+		return ""
+	}
+
+	// Remove any alias or additional clauses
+	tableName := parts[0]
+
+	// Remove quotes if present
+	tableName = strings.Trim(tableName, "\"'`")
+
+	return tableName
+}
+
+func (m *QueryModel) getTablePrimaryKeys(tableName string) []string {
+	rows, err := m.Shared.DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var primaryKeys []string
+	for rows.Next() {
+		var cid int
+		var name, dataType string
+		var notNull, pk int
+		var defaultValue any
+
+		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err != nil {
+			continue
+		}
+
+		if pk == 1 {
+			primaryKeys = append(primaryKeys, name)
+		}
+	}
+
+	return primaryKeys
+}
+
 func (m *QueryModel) executeQuery() tea.Cmd {
 	return func() tea.Msg {
-		rows, err := m.Shared.DB.Query(m.query)
+		// Modify query to always include ID columns if it's a SELECT statement
+		modifiedQuery := m.ensureIDColumns(m.query)
+
+		rows, err := m.Shared.DB.Query(modifiedQuery)
 		if err != nil {
 			m.err = err
 			return nil
@@ -194,11 +306,21 @@ func (m *QueryModel) View() string {
 		content.WriteString(TitleStyle.Render(headerRow))
 		content.WriteString("\n")
 
-		// Data rows
+		// Data rows with scrolling
 		visibleCount := Max(1, m.Shared.Height-10)
-		endIdx := Min(len(m.results), visibleCount)
+		startIdx := 0
 
-		for i := 0; i < endIdx; i++ {
+		// Adjust start index if selected row is out of view
+		if m.selectedRow >= visibleCount {
+			startIdx = m.selectedRow - visibleCount + 1
+		}
+
+		endIdx := Min(len(m.results), startIdx+visibleCount)
+
+		for i := range endIdx {
+			if i < startIdx {
+				continue
+			}
 			row := m.results[i]
 			rowStr := ""
 			for j, cell := range row {
@@ -228,4 +350,3 @@ func (m *QueryModel) View() string {
 
 	return content.String()
 }
-

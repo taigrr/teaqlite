@@ -603,4 +603,3 @@ func (m *Model) getSharedData() *SharedData {
 		return NewSharedData(m.db)
 	}
 }
-

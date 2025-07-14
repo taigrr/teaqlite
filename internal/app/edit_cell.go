@@ -82,10 +82,16 @@ func (m *EditCellModel) View() string {
 	}
 
 	content := TitleStyle.Render(fmt.Sprintf("Edit Cell: %s", columnName)) + "\n\n"
-	content += fmt.Sprintf("Value: %s\n", m.value)
-	content += fmt.Sprintf("Cursor: %d\n\n", m.cursor)
+	
+	// Display value with visible cursor
+	displayValue := m.value
+	if m.cursor <= len(displayValue) {
+		// Insert cursor character at cursor position
+		displayValue = displayValue[:m.cursor] + "_" + displayValue[m.cursor:]
+	}
+	
+	content += fmt.Sprintf("Value: %s\n\n", displayValue)
 	content += HelpStyle.Render("enter: save • esc: cancel")
 
 	return content
 }
-
