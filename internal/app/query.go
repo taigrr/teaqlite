@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type QueryModel struct {
@@ -110,7 +110,7 @@ func (m *QueryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
 			return blinkMsg{}
 		}))
-		
+
 	case tea.KeyMsg:
 		if m.FocusOnInput {
 			return m.handleQueryInput(msg)
@@ -252,9 +252,7 @@ func (m *QueryModel) ensureIDColumns(query string) string {
 
 	// Add primary keys to the beginning
 	var pkList []string
-	for _, pk := range primaryKeys {
-		pkList = append(pkList, pk)
-	}
+	pkList = append(pkList, primaryKeys...)
 
 	newSelectClause := strings.Join(pkList, ", ") + ", " + selectClause
 
@@ -458,3 +456,4 @@ func (m *QueryModel) View() string {
 
 	return content.String()
 }
+

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	_ "modernc.org/sqlite" // Import SQLite driver
 )
@@ -26,7 +26,7 @@ func nextID() int {
 // Common message types
 type blinkMsg struct{}
 
-// KeyMap defines the keybindings for the application
+// AppKeyMap defines the keybindings for the application
 type AppKeyMap struct {
 	Quit    key.Binding
 	Suspend key.Binding
@@ -468,6 +468,7 @@ var (
 )
 
 // Utility functions
+
 func TruncateString(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
