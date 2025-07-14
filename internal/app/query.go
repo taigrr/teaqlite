@@ -3,6 +3,8 @@ package app
 import (
 	"fmt"
 	"strings"
+	"time"
+	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -16,6 +18,7 @@ type QueryModel struct {
 	results      [][]string
 	columns      []string
 	err          error
+	blinkState   bool
 }
 
 func NewQueryModel(shared *SharedData) *QueryModel {
@@ -23,15 +26,24 @@ func NewQueryModel(shared *SharedData) *QueryModel {
 		Shared:       shared,
 		FocusOnInput: true,
 		selectedRow:  0,
+		blinkState:   true,
 	}
 }
 
 func (m *QueryModel) Init() tea.Cmd {
-	return nil
+	return tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
+		return blinkMsg{}
+	})
 }
 
 func (m *QueryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case blinkMsg:
+		m.blinkState = !m.blinkState
+		return m, tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
+			return blinkMsg{}
+		})
+		
 	case tea.KeyMsg:
 		if m.FocusOnInput {
 			return m.handleQueryInput(msg)
@@ -66,6 +78,21 @@ func (m *QueryModel) handleQueryInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.cursor < len(m.query) {
 			m.cursor++
 		}
+
+	case "home", "ctrl+a":
+		m.cursor = 0
+
+	case "end", "ctrl+e":
+		m.cursor = len(m.query)
+
+	case "ctrl+left":
+		m.cursor = m.wordLeft(m.query, m.cursor)
+
+	case "ctrl+right":
+		m.cursor = m.wordRight(m.query, m.cursor)
+
+	case "ctrl+w":
+		m.deleteWordLeft()
 
 	default:
 		if len(msg.String()) == 1 {
@@ -282,6 +309,55 @@ func (m *QueryModel) handleQueryCompletion(msg QueryCompletedMsg) {
 	m.err = nil
 }
 
+// wordLeft finds the position of the start of the word to the left of the cursor
+func (m *QueryModel) wordLeft(text string, pos int) int {
+	if pos == 0 {
+		return 0
+	}
+	
+	// Move left past any whitespace
+	for pos > 0 && unicode.IsSpace(rune(text[pos-1])) {
+		pos--
+	}
+	
+	// Move left past the current word
+	for pos > 0 && !unicode.IsSpace(rune(text[pos-1])) {
+		pos--
+	}
+	
+	return pos
+}
+
+// wordRight finds the position of the start of the word to the right of the cursor
+func (m *QueryModel) wordRight(text string, pos int) int {
+	if pos >= len(text) {
+		return len(text)
+	}
+	
+	// Move right past the current word
+	for pos < len(text) && !unicode.IsSpace(rune(text[pos])) {
+		pos++
+	}
+	
+	// Move right past any whitespace
+	for pos < len(text) && unicode.IsSpace(rune(text[pos])) {
+		pos++
+	}
+	
+	return pos
+}
+
+// deleteWordLeft deletes the word to the left of the cursor
+func (m *QueryModel) deleteWordLeft() {
+	if m.cursor == 0 {
+		return
+	}
+	
+	newPos := m.wordLeft(m.query, m.cursor)
+	m.query = m.query[:newPos] + m.query[m.cursor:]
+	m.cursor = newPos
+}
+
 func (m *QueryModel) View() string {
 	var content strings.Builder
 
@@ -291,7 +367,36 @@ func (m *QueryModel) View() string {
 	// Query input
 	content.WriteString("Query: ")
 	if m.FocusOnInput {
-		content.WriteString(m.query + "_")
+		// Display query with properly positioned cursor like bubbles textinput
+		query := m.query
+		pos := m.cursor
+		
+		// Text before cursor
+		before := ""
+		if pos > 0 {
+			before = query[:pos]
+		}
+		content.WriteString(before)
+		
+		// Cursor and character at cursor position
+		if pos < len(query) {
+			// Cursor over existing character
+			char := string(query[pos])
+			if m.blinkState {
+				content.WriteString(SelectedStyle.Render(char)) // Highlight the character
+			} else {
+				content.WriteString(char)
+			}
+			// Text after cursor
+			if pos+1 < len(query) {
+				content.WriteString(query[pos+1:])
+			}
+		} else {
+			// Cursor at end of text
+			if m.blinkState {
+				content.WriteString("|")
+			}
+		}
 	} else {
 		content.WriteString(m.query)
 	}
@@ -353,7 +458,7 @@ func (m *QueryModel) View() string {
 
 	content.WriteString("\n")
 	if m.FocusOnInput {
-		content.WriteString(HelpStyle.Render("enter: execute • esc: back"))
+		content.WriteString(HelpStyle.Render("enter: execute • esc: back • ctrl+w: delete word • ctrl+arrows: word nav"))
 	} else {
 		content.WriteString(HelpStyle.Render("↑/↓: navigate • enter: details • i: edit query • q: back"))
 	}
