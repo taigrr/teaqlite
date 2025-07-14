@@ -61,7 +61,7 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q":
 		m.gPressed = false
-		return m, func() tea.Msg { return SwitchToTableListMsg{} }
+		return m, func() tea.Msg { return SwitchToTableListClearMsg{} }
 
 	case "esc":
 		m.gPressed = false
@@ -71,7 +71,7 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filterData()
 			return m, nil
 		}
-		return m, func() tea.Msg { return SwitchToTableListMsg{} }
+		return m, func() tea.Msg { return SwitchToTableListClearMsg{} }
 
 	case "g":
 		if m.gPressed {

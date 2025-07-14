@@ -42,7 +42,14 @@ func (m *TableListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *TableListModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "enter":
+	case "esc":
+		m.searching = false
+		// If there's an existing filter, clear it
+		if m.searchInput != "" {
+			m.searchInput = ""
+			m.filterTables()
+		}
+	case "enter":
 		m.searching = false
 		m.filterTables()
 	case "backspace":

@@ -18,6 +18,7 @@ const (
 // Custom message types
 type (
 	SwitchToTableListMsg          struct{}
+	SwitchToTableListClearMsg     struct{} // Switch to table list and clear any filter
 	SwitchToTableDataMsg          struct{ TableIndex int }
 	SwitchToRowDetailMsg          struct{ RowIndex int }
 	SwitchToRowDetailFromQueryMsg struct{ RowIndex int }
@@ -517,6 +518,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case SwitchToTableListMsg:
 		m.currentView = NewTableListModel(m.getSharedData())
+		return m, nil
+
+	case SwitchToTableListClearMsg:
+		shared := m.getSharedData()
+		// Clear any table filter
+		shared.FilteredTables = make([]string, len(shared.Tables))
+		copy(shared.FilteredTables, shared.Tables)
+		m.currentView = NewTableListModel(shared)
 		return m, nil
 
 	case SwitchToTableDataMsg:

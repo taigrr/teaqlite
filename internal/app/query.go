@@ -57,7 +57,7 @@ func (m *QueryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *QueryModel) handleQueryInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
-		return m, func() tea.Msg { return SwitchToTableListMsg{} }
+		return m, func() tea.Msg { return SwitchToTableListClearMsg{} }
 
 	case "enter":
 		if strings.TrimSpace(m.query) != "" {
@@ -108,7 +108,7 @@ func (m *QueryModel) handleResultsNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd
 	switch msg.String() {
 	case "esc", "q":
 		m.gPressed = false
-		return m, func() tea.Msg { return SwitchToTableListMsg{} }
+		return m, func() tea.Msg { return SwitchToTableListClearMsg{} }
 
 	case "g":
 		if m.gPressed {
