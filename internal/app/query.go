@@ -19,6 +19,7 @@ type QueryModel struct {
 	columns      []string
 	err          error
 	blinkState   bool
+	gPressed     bool
 }
 
 func NewQueryModel(shared *SharedData) *QueryModel {
@@ -106,13 +107,35 @@ func (m *QueryModel) handleQueryInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *QueryModel) handleResultsNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q":
+		m.gPressed = false
 		return m, func() tea.Msg { return SwitchToTableListMsg{} }
 
+	case "g":
+		if m.gPressed {
+			// Second g - go to beginning
+			m.selectedRow = 0
+			m.gPressed = false
+		} else {
+			// First g - wait for second g
+			m.gPressed = true
+		}
+		return m, nil
+
+	case "G":
+		// Go to end
+		if len(m.results) > 0 {
+			m.selectedRow = len(m.results) - 1
+		}
+		m.gPressed = false
+		return m, nil
+
 	case "i":
+		m.gPressed = false
 		m.FocusOnInput = true
 		return m, nil
 
 	case "enter":
+		m.gPressed = false
 		if len(m.results) > 0 {
 			return m, func() tea.Msg {
 				return SwitchToRowDetailFromQueryMsg{RowIndex: m.selectedRow}
@@ -120,14 +143,20 @@ func (m *QueryModel) handleResultsNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		}
 
 	case "up", "k":
+		m.gPressed = false
 		if m.selectedRow > 0 {
 			m.selectedRow--
 		}
 
 	case "down", "j":
+		m.gPressed = false
 		if m.selectedRow < len(m.results)-1 {
 			m.selectedRow++
 		}
+
+	default:
+		// Any other key resets the g state
+		m.gPressed = false
 	}
 	return m, nil
 }
@@ -460,7 +489,7 @@ func (m *QueryModel) View() string {
 	if m.FocusOnInput {
 		content.WriteString(HelpStyle.Render("enter: execute • esc: back • ctrl+w: delete word • ctrl+arrows: word nav"))
 	} else {
-		content.WriteString(HelpStyle.Render("↑/↓: navigate • enter: details • i: edit query • q: back"))
+		content.WriteString(HelpStyle.Render("↑/↓: navigate • enter: details • i: edit query • gg/G: first/last • q: back"))
 	}
 
 	return content.String()

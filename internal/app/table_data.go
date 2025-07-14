@@ -12,6 +12,7 @@ type TableDataModel struct {
 	selectedRow int
 	searchInput string
 	searching   bool
+	gPressed    bool
 }
 
 func NewTableDataModel(shared *SharedData) *TableDataModel {
@@ -58,9 +59,11 @@ func (m *TableDataModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q":
+		m.gPressed = false
 		return m, func() tea.Msg { return SwitchToTableListMsg{} }
 
 	case "esc":
+		m.gPressed = false
 		if m.searchInput != "" {
 			// Clear search filter
 			m.searchInput = ""
@@ -69,7 +72,32 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, func() tea.Msg { return SwitchToTableListMsg{} }
 
+	case "g":
+		if m.gPressed {
+			// Second g - go to absolute beginning
+			m.Shared.CurrentPage = 0
+			m.Shared.LoadTableData()
+			m.filterData()
+			m.selectedRow = 0
+			m.gPressed = false
+		} else {
+			// First g - wait for second g
+			m.gPressed = true
+		}
+		return m, nil
+
+	case "G":
+		// Go to absolute end
+		maxPage := (m.Shared.TotalRows - 1) / PageSize
+		m.Shared.CurrentPage = maxPage
+		m.Shared.LoadTableData()
+		m.filterData()
+		m.selectedRow = len(m.Shared.FilteredData) - 1
+		m.gPressed = false
+		return m, nil
+
 	case "enter":
+		m.gPressed = false
 		if len(m.Shared.FilteredData) > 0 {
 			return m, func() tea.Msg {
 				return SwitchToRowDetailMsg{RowIndex: m.selectedRow}
@@ -77,29 +105,50 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "/":
+		m.gPressed = false
 		m.searching = true
 		m.searchInput = ""
 		return m, nil
 
 	case "s":
+		m.gPressed = false
 		return m, func() tea.Msg { return SwitchToQueryMsg{} }
 
 	case "r":
+		m.gPressed = false
 		if err := m.Shared.LoadTableData(); err == nil {
 			m.filterData()
 		}
 
 	case "up", "k":
+		m.gPressed = false
 		if m.selectedRow > 0 {
 			m.selectedRow--
+		} else if m.Shared.CurrentPage > 0 {
+			// At top of current page, go to previous page
+			m.Shared.CurrentPage--
+			m.Shared.LoadTableData()
+			m.filterData()
+			m.selectedRow = len(m.Shared.FilteredData) - 1 // Go to last row of previous page
 		}
 
 	case "down", "j":
+		m.gPressed = false
 		if m.selectedRow < len(m.Shared.FilteredData)-1 {
 			m.selectedRow++
+		} else {
+			// At bottom of current page, try to go to next page
+			maxPage := (m.Shared.TotalRows - 1) / PageSize
+			if m.Shared.CurrentPage < maxPage {
+				m.Shared.CurrentPage++
+				m.Shared.LoadTableData()
+				m.filterData()
+				m.selectedRow = 0 // Go to first row of next page
+			}
 		}
 
 	case "left", "h":
+		m.gPressed = false
 		if m.Shared.CurrentPage > 0 {
 			m.Shared.CurrentPage--
 			m.Shared.LoadTableData()
@@ -107,12 +156,17 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "right", "l":
+		m.gPressed = false
 		maxPage := (m.Shared.TotalRows - 1) / PageSize
 		if m.Shared.CurrentPage < maxPage {
 			m.Shared.CurrentPage++
 			m.Shared.LoadTableData()
 			m.selectedRow = 0
 		}
+
+	default:
+		// Any other key resets the g state
+		m.gPressed = false
 	}
 	return m, nil
 }
@@ -178,10 +232,21 @@ func (m *TableDataModel) View() string {
 		content.WriteString(TitleStyle.Render(headerRow))
 		content.WriteString("\n")
 
-		// Show data rows
+		// Show data rows with scrolling within current page
 		visibleCount := Max(1, m.Shared.Height-10)
+		totalRows := len(m.Shared.FilteredData)
 		startIdx := 0
-		endIdx := Min(len(m.Shared.FilteredData), visibleCount)
+		
+		// If there are more rows than can fit on screen, scroll the view
+		if totalRows > visibleCount && m.selectedRow >= visibleCount {
+			startIdx = m.selectedRow - visibleCount + 1
+			// Ensure we don't scroll past the end
+			if startIdx > totalRows-visibleCount {
+				startIdx = totalRows - visibleCount
+			}
+		}
+		
+		endIdx := Min(totalRows, startIdx+visibleCount)
 
 		for i := startIdx; i < endIdx; i++ {
 			row := m.Shared.FilteredData[i]
@@ -206,7 +271,7 @@ func (m *TableDataModel) View() string {
 	if m.searching {
 		content.WriteString(HelpStyle.Render("Type to search • enter/esc: finish search"))
 	} else {
-		content.WriteString(HelpStyle.Render("↑/↓: navigate • ←/→: page • /: search • enter: details • s: SQL • r: refresh • q: back"))
+		content.WriteString(HelpStyle.Render("↑/↓: navigate • ←/→: page • /: search • enter: details • s: SQL • r: refresh • gg/G: first/last • q: back"))
 	}
 
 	return content.String()

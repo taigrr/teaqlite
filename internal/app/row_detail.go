@@ -12,6 +12,7 @@ type RowDetailModel struct {
 	rowIndex    int
 	selectedCol int
 	FromQuery   bool
+	gPressed    bool
 }
 
 func NewRowDetailModel(shared *SharedData, rowIndex int) *RowDetailModel {
@@ -31,12 +32,33 @@ func (m *RowDetailModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc":
+			m.gPressed = false
 			if m.FromQuery {
 				return m, func() tea.Msg { return ReturnToQueryMsg{} }
 			}
 			return m, func() tea.Msg { return SwitchToTableDataMsg{TableIndex: m.Shared.SelectedTable} }
 
+		case "g":
+			if m.gPressed {
+				// Second g - go to beginning
+				m.selectedCol = 0
+				m.gPressed = false
+			} else {
+				// First g - wait for second g
+				m.gPressed = true
+			}
+			return m, nil
+
+		case "G":
+			// Go to end
+			if len(m.Shared.Columns) > 0 {
+				m.selectedCol = len(m.Shared.Columns) - 1
+			}
+			m.gPressed = false
+			return m, nil
+
 		case "e":
+			m.gPressed = false
 			if len(m.Shared.FilteredData) > m.rowIndex && len(m.Shared.Columns) > m.selectedCol {
 				return m, func() tea.Msg {
 					return SwitchToEditCellMsg{RowIndex: m.rowIndex, ColIndex: m.selectedCol}
@@ -44,14 +66,20 @@ func (m *RowDetailModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "up", "k":
+			m.gPressed = false
 			if m.selectedCol > 0 {
 				m.selectedCol--
 			}
 
 		case "down", "j":
+			m.gPressed = false
 			if m.selectedCol < len(m.Shared.Columns)-1 {
 				m.selectedCol++
 			}
+
+		default:
+			// Any other key resets the g state
+			m.gPressed = false
 		}
 	}
 	return m, nil
@@ -84,7 +112,7 @@ func (m *RowDetailModel) View() string {
 	}
 
 	content.WriteString("\n")
-	content.WriteString(HelpStyle.Render("↑/↓: navigate columns • e: edit • q: back"))
+	content.WriteString(HelpStyle.Render("↑/↓: navigate columns • e: edit • gg/G: first/last • q: back"))
 
 	return content.String()
 }
