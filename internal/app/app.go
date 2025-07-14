@@ -28,8 +28,9 @@ type blinkMsg struct{}
 
 // AppKeyMap defines the keybindings for the application
 type AppKeyMap struct {
-	Quit    key.Binding
-	Suspend key.Binding
+	Quit       key.Binding
+	Suspend    key.Binding
+	ToggleHelp key.Binding
 }
 
 // DefaultAppKeyMap returns the default keybindings
@@ -42,6 +43,10 @@ func DefaultAppKeyMap() AppKeyMap {
 		Suspend: key.NewBinding(
 			key.WithKeys("ctrl+z"),
 			key.WithHelp("ctrl+z", "suspend"),
+		),
+		ToggleHelp: key.NewBinding(
+			key.WithKeys("ctrl+g"),
+			key.WithHelp("ctrl+g", "toggle help"),
 		),
 	}
 }
@@ -57,6 +62,7 @@ type (
 	SwitchToQueryMsg              struct{}
 	ReturnToQueryMsg              struct{} // Return to query mode from row detail
 	RefreshDataMsg                struct{}
+	ToggleHelpMsg                 struct{} // Toggle between short and full help
 	UpdateCellMsg                 struct {
 		RowIndex, ColIndex int
 		Value              string
@@ -594,6 +600,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case key.Matches(msg, m.keyMap.Suspend):
 			return m, tea.Suspend
+		case key.Matches(msg, m.keyMap.ToggleHelp):
+			return m, func() tea.Msg { return ToggleHelpMsg{} }
 		}
 
 	case SwitchToTableListMsg:
@@ -667,6 +675,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			queryModel.handleQueryCompletion(msg)
 		}
 		return m, nil
+
+	case ToggleHelpMsg:
+		// Forward the help toggle to the current view
+		var cmd tea.Cmd
+		m.currentView, cmd = m.currentView.Update(msg)
+		return m, cmd
 	}
 
 	if m.err != nil {

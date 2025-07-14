@@ -2,7 +2,10 @@ package app
 
 import "github.com/charmbracelet/bubbles/key"
 
-// TableDataKeyMap defines keybindings for the table data view
+// TableDataKeyMap defines keybindings for the table data view.
+// Navigation follows vim-like patterns:
+// - gg: go to start (requires two 'g' presses)
+// - G: go to end (single 'G' press)
 type TableDataKeyMap struct {
 	Up         key.Binding
 	Down       key.Binding
@@ -74,7 +77,7 @@ func DefaultTableDataKeyMap() TableDataKeyMap {
 
 // ShortHelp returns keybindings to be shown in the mini help view
 func (k TableDataKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Enter, k.Search}
+	return []key.Binding{k.Up, k.Down, k.Enter, k.GoToStart, k.GoToEnd, k.Search}
 }
 
 // FullHelp returns keybindings for the expanded help view

@@ -11,15 +11,16 @@ import (
 )
 
 type EditCellModel struct {
-	Shared      *SharedData
-	rowIndex    int
-	colIndex    int
-	input       textinput.Model
-	blinkState  bool
-	keyMap      EditCellKeyMap
-	help        help.Model
-	focused     bool
-	id          int
+	Shared       *SharedData
+	rowIndex     int
+	colIndex     int
+	input        textinput.Model
+	blinkState   bool
+	keyMap       EditCellKeyMap
+	help         help.Model
+	showFullHelp bool
+	focused      bool
+	id           int
 }
 
 // EditCellOption is a functional option for configuring EditCellModel
@@ -106,6 +107,10 @@ func (m *EditCellModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case ToggleHelpMsg:
+		m.showFullHelp = !m.showFullHelp
+		return m, nil
+
 	case blinkMsg:
 		m.blinkState = !m.blinkState
 		cmds = append(cmds, blinkCmd())
@@ -146,7 +151,16 @@ func (m *EditCellModel) View() string {
 
 	content := fmt.Sprintf("%s\n\n", TitleStyle.Render(fmt.Sprintf("Edit Cell: %s", columnName)))
 	content += fmt.Sprintf("Value: %s\n\n", m.input.View())
-	content += m.help.View(m.keyMap)
+	
+	var helpText string
+	if m.showFullHelp {
+		helpText = m.help.FullHelpView(m.keyMap.FullHelp())
+	} else {
+		helpText = m.help.ShortHelpView(m.keyMap.ShortHelp())
+		// Add ctrl+g to short help
+		helpText += " • " + HelpStyle.Render("ctrl+g: toggle help")
+	}
+	content += helpText
 
 	return content
 }

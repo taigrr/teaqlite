@@ -2,7 +2,10 @@ package app
 
 import "github.com/charmbracelet/bubbles/key"
 
-// RowDetailKeyMap defines keybindings for the row detail view
+// RowDetailKeyMap defines keybindings for the row detail view.
+// Navigation follows vim-like patterns:
+// - gg: go to start (requires two 'g' presses)
+// - G: go to end (single 'G' press)
 type RowDetailKeyMap struct {
 	Up         key.Binding
 	Down       key.Binding
@@ -49,7 +52,7 @@ func DefaultRowDetailKeyMap() RowDetailKeyMap {
 
 // ShortHelp returns keybindings to be shown in the mini help view
 func (k RowDetailKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Enter, k.Back}
+	return []key.Binding{k.Up, k.Down, k.Enter, k.GoToStart, k.GoToEnd, k.Back}
 }
 
 // FullHelp returns keybindings for the expanded help view

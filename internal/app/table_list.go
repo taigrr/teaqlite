@@ -20,6 +20,7 @@ type TableListModel struct {
 	gPressed      bool
 	keyMap        TableListKeyMap
 	help          help.Model
+	showFullHelp  bool
 	focused       bool
 	id            int
 }
@@ -95,6 +96,10 @@ func (m *TableListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case ToggleHelpMsg:
+		m.showFullHelp = !m.showFullHelp
+		return m, nil
+
 	case tea.KeyMsg:
 		if m.searching {
 			return m.handleSearchInput(msg)
@@ -162,18 +167,18 @@ func (m *TableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keyMap.GoToStart):
 		if m.gPressed {
-			// Second g - go to beginning
+			// Second g - go to beginning (gg pattern like vim)
 			m.selectedTable = 0
 			m.currentPage = 0
 			m.gPressed = false
 		} else {
-			// First g - wait for second g
+			// First g - wait for second g to complete gg sequence
 			m.gPressed = true
 		}
 		return m, nil
 
 	case key.Matches(msg, m.keyMap.GoToEnd):
-		// Go to end
+		// Go to end (G pattern like vim)
 		if len(m.Shared.FilteredTables) > 0 {
 			m.selectedTable = len(m.Shared.FilteredTables) - 1
 			m.adjustPage()
@@ -406,7 +411,15 @@ func (m *TableListModel) View() string {
 	if m.searching {
 		content.WriteString(HelpStyle.Render("Type to search • enter/esc: finish search"))
 	} else {
-		content.WriteString(m.help.View(m.keyMap))
+		var helpText string
+		if m.showFullHelp {
+			helpText = m.help.FullHelpView(m.keyMap.FullHelp())
+		} else {
+			helpText = m.help.ShortHelpView(m.keyMap.ShortHelp())
+			// Add ctrl+g to short help
+			helpText += " • " + HelpStyle.Render("ctrl+g: toggle help")
+		}
+		content.WriteString(helpText)
 	}
 
 	return content.String()

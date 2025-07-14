@@ -2,7 +2,10 @@ package app
 
 import "github.com/charmbracelet/bubbles/key"
 
-// QueryKeyMap defines keybindings for the query view
+// QueryKeyMap defines keybindings for the query view.
+// Navigation follows vim-like patterns:
+// - gg: go to start (requires two 'g' presses)
+// - G: go to end (single 'G' press)
 type QueryKeyMap struct {
 	// Input mode keys
 	Execute       key.Binding
@@ -100,7 +103,7 @@ func DefaultQueryKeyMap() QueryKeyMap {
 
 // ShortHelp returns keybindings to be shown in the mini help view
 func (k QueryKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Execute, k.Up, k.Down, k.Enter}
+	return []key.Binding{k.Execute, k.Up, k.Down, k.GoToStart, k.GoToEnd, k.EditQuery}
 }
 
 // FullHelp returns keybindings for the expanded help view

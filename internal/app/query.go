@@ -23,6 +23,7 @@ type QueryModel struct {
 	gPressed     bool
 	keyMap       QueryKeyMap
 	help         help.Model
+	showFullHelp bool
 	focused      bool
 	id           int
 }
@@ -105,6 +106,10 @@ func (m *QueryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
+	case ToggleHelpMsg:
+		m.showFullHelp = !m.showFullHelp
+		return m, nil
+
 	case blinkMsg:
 		m.blinkState = !m.blinkState
 		cmds = append(cmds, tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
@@ -156,17 +161,17 @@ func (m *QueryModel) handleResultsNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd
 
 	case key.Matches(msg, m.keyMap.GoToStart):
 		if m.gPressed {
-			// Second g - go to beginning
+			// Second g - go to beginning (gg pattern like vim)
 			m.selectedRow = 0
 			m.gPressed = false
 		} else {
-			// First g - wait for second g
+			// First g - wait for second g to complete gg sequence
 			m.gPressed = true
 		}
 		return m, nil
 
 	case key.Matches(msg, m.keyMap.GoToEnd):
-		// Go to end
+		// Go to end (G pattern like vim)
 		if len(m.results) > 0 {
 			m.selectedRow = len(m.results) - 1
 		}
@@ -449,9 +454,17 @@ func (m *QueryModel) View() string {
 
 	content.WriteString("\n")
 	if m.FocusOnInput {
-		content.WriteString(HelpStyle.Render("enter: execute • esc: back"))
+		content.WriteString(HelpStyle.Render("enter: execute • esc: back • ctrl+g: toggle help"))
 	} else {
-		content.WriteString(m.help.View(m.keyMap))
+		var helpText string
+		if m.showFullHelp {
+			helpText = m.help.FullHelpView(m.keyMap.FullHelp())
+		} else {
+			helpText = m.help.ShortHelpView(m.keyMap.ShortHelp())
+			// Add ctrl+g to short help
+			helpText += " • " + HelpStyle.Render("ctrl+g: toggle help")
+		}
+		content.WriteString(helpText)
 	}
 
 	return content.String()

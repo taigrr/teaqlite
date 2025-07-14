@@ -10,15 +10,16 @@ import (
 )
 
 type RowDetailModel struct {
-	Shared      *SharedData
-	rowIndex    int
-	selectedCol int
-	FromQuery   bool
-	gPressed    bool
-	keyMap      RowDetailKeyMap
-	help        help.Model
-	focused     bool
-	id          int
+	Shared       *SharedData
+	rowIndex     int
+	selectedCol  int
+	FromQuery    bool
+	gPressed     bool
+	keyMap       RowDetailKeyMap
+	help         help.Model
+	showFullHelp bool
+	focused      bool
+	id           int
 }
 
 // RowDetailOption is a functional option for configuring RowDetailModel
@@ -81,6 +82,10 @@ func (m *RowDetailModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case ToggleHelpMsg:
+		m.showFullHelp = !m.showFullHelp
+		return m, nil
+
 	case tea.KeyMsg:
 		return m.handleNavigation(msg)
 	}
@@ -98,17 +103,17 @@ func (m *RowDetailModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, m.keyMap.GoToStart):
 		if m.gPressed {
-			// Second g - go to beginning
+			// Second g - go to beginning (gg pattern like vim)
 			m.selectedCol = 0
 			m.gPressed = false
 		} else {
-			// First g - wait for second g
+			// First g - wait for second g to complete gg sequence
 			m.gPressed = true
 		}
 		return m, nil
 
 	case key.Matches(msg, m.keyMap.GoToEnd):
-		// Go to end
+		// Go to end (G pattern like vim)
 		if len(m.Shared.Columns) > 0 {
 			m.selectedCol = len(m.Shared.Columns) - 1
 		}
@@ -176,7 +181,15 @@ func (m *RowDetailModel) View() string {
 	}
 
 	content.WriteString("\n")
-	content.WriteString(m.help.View(m.keyMap))
+	var helpText string
+	if m.showFullHelp {
+		helpText = m.help.FullHelpView(m.keyMap.FullHelp())
+	} else {
+		helpText = m.help.ShortHelpView(m.keyMap.ShortHelp())
+		// Add ctrl+g to short help
+		helpText += " • " + HelpStyle.Render("ctrl+g: toggle help")
+	}
+	content.WriteString(helpText)
 
 	return content.String()
 }
