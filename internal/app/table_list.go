@@ -6,23 +6,81 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 )
 
 type TableListModel struct {
 	Shared        *SharedData
-	searchInput   string
+	searchInput   textinput.Model
 	searching     bool
 	selectedTable int
 	currentPage   int
 	gPressed      bool
+	keyMap        TableListKeyMap
+	help          help.Model
+	focused       bool
+	id            int
 }
 
-func NewTableListModel(shared *SharedData) *TableListModel {
-	return &TableListModel{
+// TableListOption is a functional option for configuring TableListModel
+type TableListOption func(*TableListModel)
+
+// WithTableListKeyMap sets the key map
+func WithTableListKeyMap(km TableListKeyMap) TableListOption {
+	return func(m *TableListModel) {
+		m.keyMap = km
+	}
+}
+
+func NewTableListModel(shared *SharedData, opts ...TableListOption) *TableListModel {
+	searchInput := textinput.New()
+	searchInput.Placeholder = "Search tables..."
+	searchInput.CharLimit = 50
+	searchInput.Width = 30
+
+	m := &TableListModel{
 		Shared:        shared,
+		searchInput:   searchInput,
 		selectedTable: 0,
 		currentPage:   0,
+		keyMap:        DefaultTableListKeyMap(),
+		help:          help.New(),
+		focused:       true,
+		id:            nextID(),
 	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(m)
+	}
+
+	return m
+}
+
+// ID returns the unique ID of the model
+func (m TableListModel) ID() int {
+	return m.id
+}
+
+// Focus sets the focus state
+func (m *TableListModel) Focus() {
+	m.focused = true
+	if m.searching {
+		m.searchInput.Focus()
+	}
+}
+
+// Blur removes focus
+func (m *TableListModel) Blur() {
+	m.focused = false
+	m.searchInput.Blur()
+}
+
+// Focused returns the focus state
+func (m TableListModel) Focused() bool {
+	return m.focused
 }
 
 func (m *TableListModel) Init() tea.Cmd {
@@ -30,6 +88,12 @@ func (m *TableListModel) Init() tea.Cmd {
 }
 
 func (m *TableListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if !m.focused {
+		return m, nil
+	}
+
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.searching {
@@ -37,41 +101,50 @@ func (m *TableListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.handleNavigation(msg)
 	}
-	return m, nil
+
+	// Update search input for non-key messages when searching
+	if m.searching {
+		var cmd tea.Cmd
+		m.searchInput, cmd = m.searchInput.Update(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		// Update filter when search input changes
+		m.filterTables()
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m *TableListModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
+	switch {
+	case key.Matches(msg, m.keyMap.Escape):
 		m.searching = false
+		m.searchInput.Blur()
 		// If there's an existing filter, clear it
-		if m.searchInput != "" {
-			m.searchInput = ""
+		if m.searchInput.Value() != "" {
+			m.searchInput.SetValue("")
 			m.filterTables()
 		}
-	case "enter":
+	case key.Matches(msg, m.keyMap.Enter):
 		m.searching = false
+		m.searchInput.Blur()
 		m.filterTables()
-	case "backspace":
-		if len(m.searchInput) > 0 {
-			m.searchInput = m.searchInput[:len(m.searchInput)-1]
-			m.filterTables()
-		}
 	default:
-		if len(msg.String()) == 1 {
-			m.searchInput += msg.String()
-			m.filterTables()
-		}
+		var cmd tea.Cmd
+		m.searchInput, cmd = m.searchInput.Update(msg)
+		m.filterTables()
+		return m, cmd
 	}
 	return m, nil
 }
 
 func (m *TableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
-		if m.searchInput != "" {
+	switch {
+	case key.Matches(msg, m.keyMap.Escape):
+		if m.searchInput.Value() != "" {
 			// Clear search filter
-			m.searchInput = ""
+			m.searchInput.SetValue("")
 			m.filterTables()
 			m.gPressed = false
 			return m, nil
@@ -80,13 +153,14 @@ func (m *TableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.gPressed = false
 		return m, nil
 
-	case "/":
+	case key.Matches(msg, m.keyMap.Search):
 		m.searching = true
-		m.searchInput = ""
+		m.searchInput.SetValue("")
+		m.searchInput.Focus()
 		m.gPressed = false
 		return m, nil
 
-	case "g":
+	case key.Matches(msg, m.keyMap.GoToStart):
 		if m.gPressed {
 			// Second g - go to beginning
 			m.selectedTable = 0
@@ -98,7 +172,7 @@ func (m *TableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case "G":
+	case key.Matches(msg, m.keyMap.GoToEnd):
 		// Go to end
 		if len(m.Shared.FilteredTables) > 0 {
 			m.selectedTable = len(m.Shared.FilteredTables) - 1
@@ -107,7 +181,7 @@ func (m *TableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.gPressed = false
 		return m, nil
 
-	case "enter":
+	case key.Matches(msg, m.keyMap.Enter):
 		m.gPressed = false
 		if len(m.Shared.FilteredTables) > 0 {
 			return m, func() tea.Msg {
@@ -115,38 +189,38 @@ func (m *TableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case "s":
+	case key.Matches(msg, m.keyMap.SQLMode):
 		m.gPressed = false
 		return m, func() tea.Msg { return SwitchToQueryMsg{} }
 
-	case "r":
+	case key.Matches(msg, m.keyMap.Refresh):
 		m.gPressed = false
 		if err := m.Shared.LoadTables(); err == nil {
 			m.filterTables()
 		}
 
-	case "up", "k":
+	case key.Matches(msg, m.keyMap.Up):
 		m.gPressed = false
 		if m.selectedTable > 0 {
 			m.selectedTable--
 			m.adjustPage()
 		}
 
-	case "down", "j":
+	case key.Matches(msg, m.keyMap.Down):
 		m.gPressed = false
 		if m.selectedTable < len(m.Shared.FilteredTables)-1 {
 			m.selectedTable++
 			m.adjustPage()
 		}
 
-	case "left", "h":
+	case key.Matches(msg, m.keyMap.Left):
 		m.gPressed = false
 		if m.currentPage > 0 {
 			m.currentPage--
 			m.selectedTable = m.currentPage * m.getVisibleCount()
 		}
 
-	case "right", "l":
+	case key.Matches(msg, m.keyMap.Right):
 		m.gPressed = false
 		maxPage := (len(m.Shared.FilteredTables) - 1) / m.getVisibleCount()
 		if m.currentPage < maxPage {
@@ -165,7 +239,8 @@ func (m *TableListModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *TableListModel) filterTables() {
-	if m.searchInput == "" {
+	searchValue := m.searchInput.Value()
+	if searchValue == "" {
 		m.Shared.FilteredTables = make([]string, len(m.Shared.Tables))
 		copy(m.Shared.FilteredTables, m.Shared.Tables)
 	} else {
@@ -176,7 +251,7 @@ func (m *TableListModel) filterTables() {
 		}
 		
 		var matches []tableMatch
-		searchLower := strings.ToLower(m.searchInput)
+		searchLower := strings.ToLower(searchValue)
 		
 		for _, table := range m.Shared.Tables {
 			score := m.fuzzyScore(strings.ToLower(table), searchLower)
@@ -291,17 +366,17 @@ func (m *TableListModel) View() string {
 	content.WriteString("\n")
 
 	if m.searching {
-		content.WriteString("\nSearch: " + m.searchInput + "_")
+		content.WriteString("\nSearch: " + m.searchInput.View())
 		content.WriteString("\n")
-	} else if m.searchInput != "" {
+	} else if m.searchInput.Value() != "" {
 		content.WriteString(fmt.Sprintf("\nFiltered by: %s (%d/%d tables)",
-			m.searchInput, len(m.Shared.FilteredTables), len(m.Shared.Tables)))
+			m.searchInput.Value(), len(m.Shared.FilteredTables), len(m.Shared.Tables)))
 		content.WriteString("\n")
 	}
 	content.WriteString("\n")
 
 	if len(m.Shared.FilteredTables) == 0 {
-		if m.searchInput != "" {
+		if m.searchInput.Value() != "" {
 			content.WriteString("No tables match your search")
 		} else {
 			content.WriteString("No tables found in database")
@@ -331,7 +406,7 @@ func (m *TableListModel) View() string {
 	if m.searching {
 		content.WriteString(HelpStyle.Render("Type to search • enter/esc: finish search"))
 	} else {
-		content.WriteString(HelpStyle.Render("↑/↓: navigate • ←/→: page • /: search • enter: view • s: SQL • r: refresh • gg/G: first/last • ctrl+c: quit"))
+		content.WriteString(m.help.View(m.keyMap))
 	}
 
 	return content.String()

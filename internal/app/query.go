@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textarea"
 )
 
 type QueryModel struct {
 	Shared       *SharedData
-	query        string
-	cursor       int
+	queryInput   textarea.Model
 	FocusOnInput bool
 	selectedRow  int
 	results      [][]string
@@ -20,30 +21,95 @@ type QueryModel struct {
 	err          error
 	blinkState   bool
 	gPressed     bool
+	keyMap       QueryKeyMap
+	help         help.Model
+	focused      bool
+	id           int
 }
 
-func NewQueryModel(shared *SharedData) *QueryModel {
-	return &QueryModel{
-		Shared:       shared,
-		FocusOnInput: true,
-		selectedRow:  0,
-		blinkState:   true,
+// QueryOption is a functional option for configuring QueryModel
+type QueryOption func(*QueryModel)
+
+// WithQueryKeyMap sets the key map
+func WithQueryKeyMap(km QueryKeyMap) QueryOption {
+	return func(m *QueryModel) {
+		m.keyMap = km
 	}
 }
 
+func NewQueryModel(shared *SharedData, opts ...QueryOption) *QueryModel {
+	queryInput := textarea.New()
+	queryInput.Placeholder = "Enter SQL query..."
+	queryInput.SetWidth(60)
+	queryInput.SetHeight(3)
+	queryInput.Focus()
+
+	m := &QueryModel{
+		Shared:       shared,
+		queryInput:   queryInput,
+		FocusOnInput: true,
+		selectedRow:  0,
+		blinkState:   true,
+		keyMap:       DefaultQueryKeyMap(),
+		help:         help.New(),
+		focused:      true,
+		id:           nextID(),
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(m)
+	}
+
+	return m
+}
+
+// ID returns the unique ID of the model
+func (m QueryModel) ID() int {
+	return m.id
+}
+
+// Focus sets the focus state
+func (m *QueryModel) Focus() {
+	m.focused = true
+	if m.FocusOnInput {
+		m.queryInput.Focus()
+	}
+}
+
+// Blur removes focus
+func (m *QueryModel) Blur() {
+	m.focused = false
+	m.queryInput.Blur()
+}
+
+// Focused returns the focus state
+func (m QueryModel) Focused() bool {
+	return m.focused
+}
+
 func (m *QueryModel) Init() tea.Cmd {
-	return tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
-		return blinkMsg{}
-	})
+	return tea.Batch(
+		textarea.Blink,
+		tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
+			return blinkMsg{}
+		}),
+	)
 }
 
 func (m *QueryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if !m.focused {
+		return m, nil
+	}
+
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case blinkMsg:
 		m.blinkState = !m.blinkState
-		return m, tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
+		cmds = append(cmds, tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
 			return blinkMsg{}
-		})
+		}))
 		
 	case tea.KeyMsg:
 		if m.FocusOnInput {
@@ -51,66 +117,44 @@ func (m *QueryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.handleResultsNavigation(msg)
 	}
-	return m, nil
+
+	// Update query input for non-key messages when focused on input
+	if m.FocusOnInput {
+		var cmd tea.Cmd
+		m.queryInput, cmd = m.queryInput.Update(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m *QueryModel) handleQueryInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
+	switch {
+	case key.Matches(msg, m.keyMap.Escape):
 		return m, func() tea.Msg { return SwitchToTableListClearMsg{} }
 
-	case "enter":
-		if strings.TrimSpace(m.query) != "" {
+	case key.Matches(msg, m.keyMap.Execute):
+		if strings.TrimSpace(m.queryInput.Value()) != "" {
 			return m, m.executeQuery()
 		}
 
-	case "backspace":
-		if m.cursor > 0 {
-			m.query = m.query[:m.cursor-1] + m.query[m.cursor:]
-			m.cursor--
-		}
-
-	case "left":
-		if m.cursor > 0 {
-			m.cursor--
-		}
-
-	case "right":
-		if m.cursor < len(m.query) {
-			m.cursor++
-		}
-
-	case "home", "ctrl+a":
-		m.cursor = 0
-
-	case "end", "ctrl+e":
-		m.cursor = len(m.query)
-
-	case "ctrl+left":
-		m.cursor = m.wordLeft(m.query, m.cursor)
-
-	case "ctrl+right":
-		m.cursor = m.wordRight(m.query, m.cursor)
-
-	case "ctrl+w":
-		m.deleteWordLeft()
-
 	default:
-		if len(msg.String()) == 1 {
-			m.query = m.query[:m.cursor] + msg.String() + m.query[m.cursor:]
-			m.cursor++
-		}
+		var cmd tea.Cmd
+		m.queryInput, cmd = m.queryInput.Update(msg)
+		return m, cmd
 	}
 	return m, nil
 }
 
 func (m *QueryModel) handleResultsNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc", "q":
+	switch {
+	case key.Matches(msg, m.keyMap.Escape), key.Matches(msg, m.keyMap.Back):
 		m.gPressed = false
 		return m, func() tea.Msg { return SwitchToTableListClearMsg{} }
 
-	case "g":
+	case key.Matches(msg, m.keyMap.GoToStart):
 		if m.gPressed {
 			// Second g - go to beginning
 			m.selectedRow = 0
@@ -121,7 +165,7 @@ func (m *QueryModel) handleResultsNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		}
 		return m, nil
 
-	case "G":
+	case key.Matches(msg, m.keyMap.GoToEnd):
 		// Go to end
 		if len(m.results) > 0 {
 			m.selectedRow = len(m.results) - 1
@@ -129,12 +173,13 @@ func (m *QueryModel) handleResultsNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd
 		m.gPressed = false
 		return m, nil
 
-	case "i":
+	case key.Matches(msg, m.keyMap.EditQuery):
 		m.gPressed = false
 		m.FocusOnInput = true
+		m.queryInput.Focus()
 		return m, nil
 
-	case "enter":
+	case key.Matches(msg, m.keyMap.Enter):
 		m.gPressed = false
 		if len(m.results) > 0 {
 			return m, func() tea.Msg {
@@ -142,13 +187,13 @@ func (m *QueryModel) handleResultsNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd
 			}
 		}
 
-	case "up", "k":
+	case key.Matches(msg, m.keyMap.Up):
 		m.gPressed = false
 		if m.selectedRow > 0 {
 			m.selectedRow--
 		}
 
-	case "down", "j":
+	case key.Matches(msg, m.keyMap.Down):
 		m.gPressed = false
 		if m.selectedRow < len(m.results)-1 {
 			m.selectedRow++
@@ -273,7 +318,7 @@ func (m *QueryModel) getTablePrimaryKeys(tableName string) []string {
 func (m *QueryModel) executeQuery() tea.Cmd {
 	return func() tea.Msg {
 		// Modify query to always include ID columns if it's a SELECT statement
-		modifiedQuery := m.ensureIDColumns(m.query)
+		modifiedQuery := m.ensureIDColumns(m.queryInput.Value())
 
 		rows, err := m.Shared.DB.Query(modifiedQuery)
 		if err != nil {
@@ -334,57 +379,9 @@ func (m *QueryModel) handleQueryCompletion(msg QueryCompletedMsg) {
 	m.Shared.IsQueryResult = true
 
 	m.FocusOnInput = false
+	m.queryInput.Blur()
 	m.selectedRow = 0
 	m.err = nil
-}
-
-// wordLeft finds the position of the start of the word to the left of the cursor
-func (m *QueryModel) wordLeft(text string, pos int) int {
-	if pos == 0 {
-		return 0
-	}
-	
-	// Move left past any whitespace
-	for pos > 0 && unicode.IsSpace(rune(text[pos-1])) {
-		pos--
-	}
-	
-	// Move left past the current word
-	for pos > 0 && !unicode.IsSpace(rune(text[pos-1])) {
-		pos--
-	}
-	
-	return pos
-}
-
-// wordRight finds the position of the start of the word to the right of the cursor
-func (m *QueryModel) wordRight(text string, pos int) int {
-	if pos >= len(text) {
-		return len(text)
-	}
-	
-	// Move right past the current word
-	for pos < len(text) && !unicode.IsSpace(rune(text[pos])) {
-		pos++
-	}
-	
-	// Move right past any whitespace
-	for pos < len(text) && unicode.IsSpace(rune(text[pos])) {
-		pos++
-	}
-	
-	return pos
-}
-
-// deleteWordLeft deletes the word to the left of the cursor
-func (m *QueryModel) deleteWordLeft() {
-	if m.cursor == 0 {
-		return
-	}
-	
-	newPos := m.wordLeft(m.query, m.cursor)
-	m.query = m.query[:newPos] + m.query[m.cursor:]
-	m.cursor = newPos
 }
 
 func (m *QueryModel) View() string {
@@ -394,41 +391,8 @@ func (m *QueryModel) View() string {
 	content.WriteString("\n\n")
 
 	// Query input
-	content.WriteString("Query: ")
-	if m.FocusOnInput {
-		// Display query with properly positioned cursor like bubbles textinput
-		query := m.query
-		pos := m.cursor
-		
-		// Text before cursor
-		before := ""
-		if pos > 0 {
-			before = query[:pos]
-		}
-		content.WriteString(before)
-		
-		// Cursor and character at cursor position
-		if pos < len(query) {
-			// Cursor over existing character
-			char := string(query[pos])
-			if m.blinkState {
-				content.WriteString(SelectedStyle.Render(char)) // Highlight the character
-			} else {
-				content.WriteString(char)
-			}
-			// Text after cursor
-			if pos+1 < len(query) {
-				content.WriteString(query[pos+1:])
-			}
-		} else {
-			// Cursor at end of text
-			if m.blinkState {
-				content.WriteString("|")
-			}
-		}
-	} else {
-		content.WriteString(m.query)
-	}
+	content.WriteString("Query:\n")
+	content.WriteString(m.queryInput.View())
 	content.WriteString("\n\n")
 
 	// Error display
@@ -487,9 +451,9 @@ func (m *QueryModel) View() string {
 
 	content.WriteString("\n")
 	if m.FocusOnInput {
-		content.WriteString(HelpStyle.Render("enter: execute • esc: back • ctrl+w: delete word • ctrl+arrows: word nav"))
+		content.WriteString(HelpStyle.Render("enter: execute • esc: back"))
 	} else {
-		content.WriteString(HelpStyle.Render("↑/↓: navigate • enter: details • i: edit query • gg/G: first/last • q: back"))
+		content.WriteString(m.help.View(m.keyMap))
 	}
 
 	return content.String()

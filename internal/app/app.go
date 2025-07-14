@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync/atomic"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
 	_ "modernc.org/sqlite" // Import SQLite driver
 )
@@ -14,6 +16,35 @@ import (
 const (
 	PageSize = 20
 )
+
+var lastID int64
+
+func nextID() int {
+	return int(atomic.AddInt64(&lastID, 1))
+}
+
+// Common message types
+type blinkMsg struct{}
+
+// KeyMap defines the keybindings for the application
+type AppKeyMap struct {
+	Quit    key.Binding
+	Suspend key.Binding
+}
+
+// DefaultAppKeyMap returns the default keybindings
+func DefaultAppKeyMap() AppKeyMap {
+	return AppKeyMap{
+		Quit: key.NewBinding(
+			key.WithKeys("ctrl+c"),
+			key.WithHelp("ctrl+c", "quit"),
+		),
+		Suspend: key.NewBinding(
+			key.WithKeys("ctrl+z"),
+			key.WithHelp("ctrl+z", "suspend"),
+		),
+	}
+}
 
 // Custom message types
 type (
@@ -45,6 +76,26 @@ type Model struct {
 	width       int
 	height      int
 	err         error
+	keyMap      AppKeyMap
+	focused     bool
+}
+
+// Option is a functional option for configuring the Model
+type Option func(*Model)
+
+// WithKeyMap sets the key map for the application
+func WithKeyMap(km AppKeyMap) Option {
+	return func(m *Model) {
+		m.keyMap = km
+	}
+}
+
+// WithDimensions sets the initial dimensions
+func WithDimensions(width, height int) Option {
+	return func(m *Model) {
+		m.width = width
+		m.height = height
+	}
 }
 
 // SharedData that all models need access to
@@ -478,18 +529,42 @@ func Max(a, b int) int {
 	return b
 }
 
-func InitialModel(db *sql.DB) *Model {
+func InitialModel(db *sql.DB, opts ...Option) *Model {
 	shared := NewSharedData(db)
 	if err := shared.LoadTables(); err != nil {
 		return &Model{err: err}
 	}
 
-	return &Model{
+	m := &Model{
 		db:          db,
 		currentView: NewTableListModel(shared),
 		width:       80,
 		height:      24,
+		keyMap:      DefaultAppKeyMap(),
+		focused:     true,
 	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(m)
+	}
+
+	return m
+}
+
+// Focus sets the focus state of the application
+func (m *Model) Focus() {
+	m.focused = true
+}
+
+// Blur removes focus from the application
+func (m *Model) Blur() {
+	m.focused = false
+}
+
+// Focused returns the focus state
+func (m Model) Focused() bool {
+	return m.focused
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -497,6 +572,10 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if !m.focused {
+		return m, nil
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -509,10 +588,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Add similar updates for other model types as needed
 
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" {
+		switch {
+		case key.Matches(msg, m.keyMap.Quit):
 			return m, tea.Quit
-		}
-		if msg.String() == "ctrl+z" {
+		case key.Matches(msg, m.keyMap.Suspend):
 			return m, tea.Suspend
 		}
 

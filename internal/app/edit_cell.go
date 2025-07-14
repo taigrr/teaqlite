@@ -3,21 +3,34 @@ package app
 import (
 	"fmt"
 	"time"
-	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 )
 
 type EditCellModel struct {
 	Shared      *SharedData
 	rowIndex    int
 	colIndex    int
-	value       string
-	cursor      int
+	input       textinput.Model
 	blinkState  bool
+	keyMap      EditCellKeyMap
+	help        help.Model
+	focused     bool
+	id          int
 }
 
-type blinkMsg struct{}
+// EditCellOption is a functional option for configuring EditCellModel
+type EditCellOption func(*EditCellModel)
+
+// WithEditCellKeyMap sets the key map
+func WithEditCellKeyMap(km EditCellKeyMap) EditCellOption {
+	return func(m *EditCellModel) {
+		m.keyMap = km
+	}
+}
 
 func blinkCmd() tea.Cmd {
 	return tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
@@ -25,85 +38,104 @@ func blinkCmd() tea.Cmd {
 	})
 }
 
-func NewEditCellModel(shared *SharedData, rowIndex, colIndex int) *EditCellModel {
+func NewEditCellModel(shared *SharedData, rowIndex, colIndex int, opts ...EditCellOption) *EditCellModel {
 	value := ""
 	if rowIndex < len(shared.FilteredData) && colIndex < len(shared.FilteredData[rowIndex]) {
 		value = shared.FilteredData[rowIndex][colIndex]
 	}
 
-	return &EditCellModel{
+	input := textinput.New()
+	input.SetValue(value)
+	input.Width = 50
+	input.Focus()
+
+	m := &EditCellModel{
 		Shared:     shared,
 		rowIndex:   rowIndex,
 		colIndex:   colIndex,
-		value:      value,
-		cursor:     len(value),
+		input:      input,
 		blinkState: true,
+		keyMap:     DefaultEditCellKeyMap(),
+		help:       help.New(),
+		focused:    true,
+		id:         nextID(),
 	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(m)
+	}
+
+	return m
+}
+
+// ID returns the unique ID of the model
+func (m EditCellModel) ID() int {
+	return m.id
+}
+
+// Focus sets the focus state
+func (m *EditCellModel) Focus() {
+	m.focused = true
+	m.input.Focus()
+}
+
+// Blur removes focus
+func (m *EditCellModel) Blur() {
+	m.focused = false
+	m.input.Blur()
+}
+
+// Focused returns the focus state
+func (m EditCellModel) Focused() bool {
+	return m.focused
 }
 
 func (m *EditCellModel) Init() tea.Cmd {
-	return blinkCmd()
+	return tea.Batch(
+		textinput.Blink,
+		blinkCmd(),
+	)
 }
 
 func (m *EditCellModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if !m.focused {
+		return m, nil
+	}
+
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case blinkMsg:
 		m.blinkState = !m.blinkState
-		return m, blinkCmd()
-		
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc":
-			return m, func() tea.Msg { return SwitchToRowDetailMsg{RowIndex: m.rowIndex} }
+		cmds = append(cmds, blinkCmd())
 
-		case "enter":
+	case tea.KeyMsg:
+		switch {
+		case key.Matches(msg, m.keyMap.Save):
 			return m, func() tea.Msg {
 				return UpdateCellMsg{
 					RowIndex: m.rowIndex,
 					ColIndex: m.colIndex,
-					Value:    m.value,
+					Value:    m.input.Value(),
 				}
 			}
 
-		case "backspace":
-			if m.cursor > 0 {
-				m.value = m.value[:m.cursor-1] + m.value[m.cursor:]
-				m.cursor--
-			}
-
-		case "left":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-
-		case "right":
-			if m.cursor < len(m.value) {
-				m.cursor++
-			}
-
-		case "home", "ctrl+a":
-			m.cursor = 0
-
-		case "end", "ctrl+e":
-			m.cursor = len(m.value)
-
-		case "ctrl+left":
-			m.cursor = m.wordLeft(m.value, m.cursor)
-
-		case "ctrl+right":
-			m.cursor = m.wordRight(m.value, m.cursor)
-
-		case "ctrl+w":
-			m.deleteWordLeft()
-
-		default:
-			if len(msg.String()) == 1 {
-				m.value = m.value[:m.cursor] + msg.String() + m.value[m.cursor:]
-				m.cursor++
+		case key.Matches(msg, m.keyMap.Cancel):
+			return m, func() tea.Msg {
+				return SwitchToRowDetailMsg{RowIndex: m.rowIndex}
 			}
 		}
 	}
-	return m, nil
+
+	// Update the input for all other messages
+	var cmd tea.Cmd
+	m.input, cmd = m.input.Update(msg)
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m *EditCellModel) View() string {
@@ -112,89 +144,9 @@ func (m *EditCellModel) View() string {
 		columnName = m.Shared.Columns[m.colIndex]
 	}
 
-	content := TitleStyle.Render(fmt.Sprintf("Edit Cell: %s", columnName)) + "\n\n"
-
-	// Display value with properly positioned cursor like bubbles textinput
-	content += "Value: "
-	value := m.value
-	pos := m.cursor
-	
-	// Text before cursor
-	if pos > 0 {
-		content += value[:pos]
-	}
-	
-	// Cursor and character at cursor position
-	if pos < len(value) {
-		// Cursor over existing character
-		char := string(value[pos])
-		if m.blinkState {
-			content += SelectedStyle.Render(char) // Highlight the character
-		} else {
-			content += char
-		}
-		// Text after cursor
-		if pos+1 < len(value) {
-			content += value[pos+1:]
-		}
-	} else {
-		// Cursor at end of text
-		if m.blinkState {
-			content += "|"
-		}
-	}
-
-	content += "\n\n"
-	content += HelpStyle.Render("enter: save • esc: cancel • ctrl+w: delete word • ctrl+arrows: word nav")
+	content := fmt.Sprintf("%s\n\n", TitleStyle.Render(fmt.Sprintf("Edit Cell: %s", columnName)))
+	content += fmt.Sprintf("Value: %s\n\n", m.input.View())
+	content += m.help.View(m.keyMap)
 
 	return content
-}
-
-// wordLeft finds the position of the start of the word to the left of the cursor
-func (m *EditCellModel) wordLeft(text string, pos int) int {
-	if pos == 0 {
-		return 0
-	}
-	
-	// Move left past any whitespace
-	for pos > 0 && unicode.IsSpace(rune(text[pos-1])) {
-		pos--
-	}
-	
-	// Move left past the current word
-	for pos > 0 && !unicode.IsSpace(rune(text[pos-1])) {
-		pos--
-	}
-	
-	return pos
-}
-
-// wordRight finds the position of the start of the word to the right of the cursor
-func (m *EditCellModel) wordRight(text string, pos int) int {
-	if pos >= len(text) {
-		return len(text)
-	}
-	
-	// Move right past the current word
-	for pos < len(text) && !unicode.IsSpace(rune(text[pos])) {
-		pos++
-	}
-	
-	// Move right past any whitespace
-	for pos < len(text) && unicode.IsSpace(rune(text[pos])) {
-		pos++
-	}
-	
-	return pos
-}
-
-// deleteWordLeft deletes the word to the left of the cursor
-func (m *EditCellModel) deleteWordLeft() {
-	if m.cursor == 0 {
-		return
-	}
-	
-	newPos := m.wordLeft(m.value, m.cursor)
-	m.value = m.value[:newPos] + m.value[m.cursor:]
-	m.cursor = newPos
 }
