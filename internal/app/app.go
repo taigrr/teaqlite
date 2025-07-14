@@ -29,7 +29,12 @@ type (
 		RowIndex, ColIndex int
 		Value              string
 	}
-	ExecuteQueryMsg struct{ Query string }
+	ExecuteQueryMsg   struct{ Query string }
+	QueryCompletedMsg struct {
+		Results [][]string
+		Columns []string
+		Error   error
+	}
 )
 
 // Model is the main application model
@@ -506,6 +511,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+		if msg.String() == "ctrl+z" {
+			return m, tea.Suspend
+		}
 
 	case SwitchToTableListMsg:
 		m.currentView = NewTableListModel(m.getSharedData())
@@ -563,6 +571,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = err
 		}
 		return m, func() tea.Msg { return SwitchToRowDetailMsg{msg.RowIndex} }
+
+	case QueryCompletedMsg:
+		// Forward the query completion to the query model
+		if queryModel, ok := m.currentView.(*QueryModel); ok {
+			queryModel.handleQueryCompletion(msg)
+		}
+		return m, nil
 	}
 
 	if m.err != nil {

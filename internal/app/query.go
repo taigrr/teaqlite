@@ -221,21 +221,18 @@ func (m *QueryModel) executeQuery() tea.Cmd {
 
 		rows, err := m.Shared.DB.Query(modifiedQuery)
 		if err != nil {
-			m.err = err
-			return nil
+			return QueryCompletedMsg{Error: err}
 		}
 		defer rows.Close()
 
 		// Get column names
 		columns, err := rows.Columns()
 		if err != nil {
-			m.err = err
-			return nil
+			return QueryCompletedMsg{Error: err}
 		}
-		m.columns = columns
 
 		// Get results
-		m.results = [][]string{}
+		var results [][]string
 		for rows.Next() {
 			values := make([]any, len(columns))
 			valuePtrs := make([]any, len(columns))
@@ -244,8 +241,7 @@ func (m *QueryModel) executeQuery() tea.Cmd {
 			}
 
 			if err := rows.Scan(valuePtrs...); err != nil {
-				m.err = err
-				return nil
+				return QueryCompletedMsg{Error: err}
 			}
 
 			row := make([]string, len(columns))
@@ -256,20 +252,34 @@ func (m *QueryModel) executeQuery() tea.Cmd {
 					row[i] = fmt.Sprintf("%v", val)
 				}
 			}
-			m.results = append(m.results, row)
+			results = append(results, row)
 		}
 
-		// Update shared data for row detail view
-		m.Shared.FilteredData = m.results
-		m.Shared.Columns = m.columns
-		m.Shared.IsQueryResult = true
-
-		m.FocusOnInput = false
-		m.selectedRow = 0
-		m.err = nil
-
-		return nil
+		return QueryCompletedMsg{
+			Results: results,
+			Columns: columns,
+			Error:   nil,
+		}
 	}
+}
+
+func (m *QueryModel) handleQueryCompletion(msg QueryCompletedMsg) {
+	if msg.Error != nil {
+		m.err = msg.Error
+		return
+	}
+
+	m.results = msg.Results
+	m.columns = msg.Columns
+
+	// Update shared data for row detail view
+	m.Shared.FilteredData = m.results
+	m.Shared.Columns = m.columns
+	m.Shared.IsQueryResult = true
+
+	m.FocusOnInput = false
+	m.selectedRow = 0
+	m.err = nil
 }
 
 func (m *QueryModel) View() string {

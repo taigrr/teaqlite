@@ -57,7 +57,16 @@ func (m *TableDataModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 
 func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "q", "esc":
+	case "q":
+		return m, func() tea.Msg { return SwitchToTableListMsg{} }
+
+	case "esc":
+		if m.searchInput != "" {
+			// Clear search filter
+			m.searchInput = ""
+			m.filterData()
+			return m, nil
+		}
 		return m, func() tea.Msg { return SwitchToTableListMsg{} }
 
 	case "enter":
