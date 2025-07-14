@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -176,21 +177,113 @@ func (m *TableDataModel) filterData() {
 		m.Shared.FilteredData = make([][]string, len(m.Shared.TableData))
 		copy(m.Shared.FilteredData, m.Shared.TableData)
 	} else {
-		m.Shared.FilteredData = [][]string{}
+		// Fuzzy search with scoring for rows
+		type rowMatch struct {
+			row   []string
+			score int
+		}
+		
+		var matches []rowMatch
 		searchLower := strings.ToLower(m.searchInput)
+		
 		for _, row := range m.Shared.TableData {
+			bestScore := 0
+			// Check each cell in the row and take the best score
 			for _, cell := range row {
-				if strings.Contains(strings.ToLower(cell), searchLower) {
-					m.Shared.FilteredData = append(m.Shared.FilteredData, row)
-					break
+				score := m.fuzzyScore(strings.ToLower(cell), searchLower)
+				if score > bestScore {
+					bestScore = score
 				}
 			}
+			
+			if bestScore > 0 {
+				matches = append(matches, rowMatch{row: row, score: bestScore})
+			}
+		}
+		
+		// Sort by score (highest first)
+		sort.Slice(matches, func(i, j int) bool {
+			return matches[i].score > matches[j].score
+		})
+		
+		// Extract sorted rows
+		m.Shared.FilteredData = make([][]string, len(matches))
+		for i, match := range matches {
+			m.Shared.FilteredData[i] = match.row
 		}
 	}
 
 	if m.selectedRow >= len(m.Shared.FilteredData) {
 		m.selectedRow = 0
 	}
+}
+
+// fuzzyScore calculates a fuzzy match score between text and pattern
+// Returns 0 for no match, higher scores for better matches
+func (m *TableDataModel) fuzzyScore(text, pattern string) int {
+	if pattern == "" {
+		return 1
+	}
+	
+	textLen := len(text)
+	patternLen := len(pattern)
+	
+	if patternLen > textLen {
+		return 0
+	}
+	
+	// Exact match gets highest score
+	if text == pattern {
+		return 1000
+	}
+	
+	// Prefix match gets high score
+	if strings.HasPrefix(text, pattern) {
+		return 900
+	}
+	
+	// Contains match gets medium score
+	if strings.Contains(text, pattern) {
+		return 800
+	}
+	
+	// Fuzzy character sequence matching
+	score := 0
+	textIdx := 0
+	patternIdx := 0
+	consecutiveMatches := 0
+	
+	for textIdx < textLen && patternIdx < patternLen {
+		if text[textIdx] == pattern[patternIdx] {
+			score += 10
+			consecutiveMatches++
+			
+			// Bonus for consecutive matches
+			if consecutiveMatches > 1 {
+				score += consecutiveMatches * 5
+			}
+			
+			// Bonus for matches at word boundaries
+			if textIdx == 0 || text[textIdx-1] == '_' || text[textIdx-1] == '-' || text[textIdx-1] == ' ' {
+				score += 20
+			}
+			
+			patternIdx++
+		} else {
+			consecutiveMatches = 0
+		}
+		textIdx++
+	}
+	
+	// Must match all pattern characters
+	if patternIdx < patternLen {
+		return 0
+	}
+	
+	// Bonus for shorter text (more precise match)
+	score += (100 - textLen)
+	
+	return score
 }
 
 func (m *TableDataModel) View() string {
