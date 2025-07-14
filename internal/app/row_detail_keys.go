@@ -14,6 +14,7 @@ type RowDetailKeyMap struct {
 	Back       key.Binding
 	GoToStart  key.Binding
 	GoToEnd    key.Binding
+	ToggleHelp key.Binding
 }
 
 // DefaultRowDetailKeyMap returns the default keybindings for row detail
@@ -47,18 +48,22 @@ func DefaultRowDetailKeyMap() RowDetailKeyMap {
 			key.WithKeys("G"),
 			key.WithHelp("G", "go to end"),
 		),
+		ToggleHelp: key.NewBinding(
+			key.WithKeys("ctrl+g"),
+			key.WithHelp("ctrl+g", "toggle help"),
+		),
 	}
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view
 func (k RowDetailKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Enter, k.GoToStart, k.GoToEnd, k.Back}
+	return []key.Binding{k.Up, k.Down, k.Enter, k.GoToStart, k.GoToEnd, k.Back, k.ToggleHelp}
 }
 
 // FullHelp returns keybindings for the expanded help view
 func (k RowDetailKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Enter},
-		{k.Escape, k.Back, k.GoToStart, k.GoToEnd},
+		{k.Escape, k.Back, k.GoToStart, k.GoToEnd, k.ToggleHelp},
 	}
 }

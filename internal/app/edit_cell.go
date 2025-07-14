@@ -152,15 +152,11 @@ func (m *EditCellModel) View() string {
 	content := fmt.Sprintf("%s\n\n", TitleStyle.Render(fmt.Sprintf("Edit Cell: %s", columnName)))
 	content += fmt.Sprintf("Value: %s\n\n", m.input.View())
 	
-	var helpText string
 	if m.showFullHelp {
-		helpText = m.help.FullHelpView(m.keyMap.FullHelp())
+		content += m.help.FullHelpView(m.keyMap.FullHelp())
 	} else {
-		helpText = m.help.ShortHelpView(m.keyMap.ShortHelp())
-		// Add ctrl+g to short help
-		helpText += " • " + HelpStyle.Render("ctrl+g: toggle help")
+		content += m.help.ShortHelpView(m.keyMap.ShortHelp())
 	}
-	content += helpText
 
 	return content
 }

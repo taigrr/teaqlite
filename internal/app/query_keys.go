@@ -26,6 +26,7 @@ type QueryKeyMap struct {
 	GoToStart     key.Binding
 	GoToEnd       key.Binding
 	Back          key.Binding
+	ToggleHelp    key.Binding
 }
 
 // DefaultQueryKeyMap returns the default keybindings for query view
@@ -98,12 +99,16 @@ func DefaultQueryKeyMap() QueryKeyMap {
 			key.WithKeys("q"),
 			key.WithHelp("q", "back"),
 		),
+		ToggleHelp: key.NewBinding(
+			key.WithKeys("ctrl+g"),
+			key.WithHelp("ctrl+g", "toggle help"),
+		),
 	}
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view
 func (k QueryKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Execute, k.Up, k.Down, k.GoToStart, k.GoToEnd, k.EditQuery}
+	return []key.Binding{k.Execute, k.Up, k.Down, k.GoToStart, k.GoToEnd, k.EditQuery, k.ToggleHelp}
 }
 
 // FullHelp returns keybindings for the expanded help view
@@ -112,6 +117,6 @@ func (k QueryKeyMap) FullHelp() [][]key.Binding {
 		{k.Execute, k.Escape, k.EditQuery, k.Back},
 		{k.Up, k.Down, k.Enter, k.GoToStart, k.GoToEnd},
 		{k.CursorLeft, k.CursorRight, k.WordLeft, k.WordRight},
-		{k.LineStart, k.LineEnd, k.DeleteWord},
+		{k.LineStart, k.LineEnd, k.DeleteWord, k.ToggleHelp},
 	}
 }

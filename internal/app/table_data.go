@@ -445,15 +445,11 @@ func (m *TableDataModel) View() string {
 	if m.searching {
 		content.WriteString(HelpStyle.Render("Type to search • enter/esc: finish search"))
 	} else {
-		var helpText string
 		if m.showFullHelp {
-			helpText = m.help.FullHelpView(m.keyMap.FullHelp())
+			content.WriteString(m.help.FullHelpView(m.keyMap.FullHelp()))
 		} else {
-			helpText = m.help.ShortHelpView(m.keyMap.ShortHelp())
-			// Add ctrl+g to short help
-			helpText += " • " + HelpStyle.Render("ctrl+g: toggle help")
+			content.WriteString(m.help.ShortHelpView(m.keyMap.ShortHelp()))
 		}
-		content.WriteString(helpText)
 	}
 
 	return content.String()

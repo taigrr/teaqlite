@@ -14,6 +14,7 @@ type EditCellKeyMap struct {
 	LineEnd       key.Binding
 	DeleteWord    key.Binding
 	DeleteChar    key.Binding
+	ToggleHelp    key.Binding
 }
 
 // DefaultEditCellKeyMap returns the default keybindings for edit cell
@@ -59,12 +60,16 @@ func DefaultEditCellKeyMap() EditCellKeyMap {
 			key.WithKeys("backspace"),
 			key.WithHelp("backspace", "delete char"),
 		),
+		ToggleHelp: key.NewBinding(
+			key.WithKeys("ctrl+g"),
+			key.WithHelp("ctrl+g", "toggle help"),
+		),
 	}
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view
 func (k EditCellKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Save, k.Cancel}
+	return []key.Binding{k.Save, k.Cancel, k.ToggleHelp}
 }
 
 // FullHelp returns keybindings for the expanded help view
@@ -72,6 +77,6 @@ func (k EditCellKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Save, k.Cancel},
 		{k.CursorLeft, k.CursorRight, k.WordLeft, k.WordRight},
-		{k.LineStart, k.LineEnd, k.DeleteWord, k.DeleteChar},
+		{k.LineStart, k.LineEnd, k.DeleteWord, k.DeleteChar, k.ToggleHelp},
 	}
 }

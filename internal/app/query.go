@@ -456,15 +456,11 @@ func (m *QueryModel) View() string {
 	if m.FocusOnInput {
 		content.WriteString(HelpStyle.Render("enter: execute • esc: back • ctrl+g: toggle help"))
 	} else {
-		var helpText string
 		if m.showFullHelp {
-			helpText = m.help.FullHelpView(m.keyMap.FullHelp())
+			content.WriteString(m.help.FullHelpView(m.keyMap.FullHelp()))
 		} else {
-			helpText = m.help.ShortHelpView(m.keyMap.ShortHelp())
-			// Add ctrl+g to short help
-			helpText += " • " + HelpStyle.Render("ctrl+g: toggle help")
+			content.WriteString(m.help.ShortHelpView(m.keyMap.ShortHelp()))
 		}
-		content.WriteString(helpText)
 	}
 
 	return content.String()

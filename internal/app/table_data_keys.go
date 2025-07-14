@@ -19,6 +19,7 @@ type TableDataKeyMap struct {
 	GoToEnd    key.Binding
 	Refresh    key.Binding
 	SQLMode    key.Binding
+	ToggleHelp key.Binding
 }
 
 // DefaultTableDataKeyMap returns the default keybindings for table data
@@ -72,12 +73,16 @@ func DefaultTableDataKeyMap() TableDataKeyMap {
 			key.WithKeys("s"),
 			key.WithHelp("s", "SQL mode"),
 		),
+		ToggleHelp: key.NewBinding(
+			key.WithKeys("ctrl+g"),
+			key.WithHelp("ctrl+g", "toggle help"),
+		),
 	}
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view
 func (k TableDataKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Enter, k.GoToStart, k.GoToEnd, k.Search}
+	return []key.Binding{k.Up, k.Down, k.Enter, k.GoToStart, k.GoToEnd, k.Search, k.ToggleHelp}
 }
 
 // FullHelp returns keybindings for the expanded help view
@@ -85,6 +90,6 @@ func (k TableDataKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Left, k.Right},
 		{k.Enter, k.Search, k.Escape, k.Back},
-		{k.GoToStart, k.GoToEnd, k.Refresh, k.SQLMode},
+		{k.GoToStart, k.GoToEnd, k.Refresh, k.SQLMode, k.ToggleHelp},
 	}
 }
