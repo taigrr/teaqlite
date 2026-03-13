@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type RowDetailModel struct {
@@ -171,7 +171,7 @@ func (m *RowDetailModel) View() string {
 		if availableWidth < 20 {
 			availableWidth = 20 // Minimum width
 		}
-		
+
 		if len(value) > availableWidth {
 			// Wrap long values
 			lines := WrapText(value, availableWidth)
