@@ -4,17 +4,17 @@ import "github.com/charmbracelet/bubbles/key"
 
 // EditCellKeyMap defines keybindings for the edit cell view
 type EditCellKeyMap struct {
-	Save          key.Binding
-	Cancel        key.Binding
-	CursorLeft    key.Binding
-	CursorRight   key.Binding
-	WordLeft      key.Binding
-	WordRight     key.Binding
-	LineStart     key.Binding
-	LineEnd       key.Binding
-	DeleteWord    key.Binding
-	DeleteChar    key.Binding
-	ToggleHelp    key.Binding
+	Save        key.Binding
+	Cancel      key.Binding
+	CursorLeft  key.Binding
+	CursorRight key.Binding
+	WordLeft    key.Binding
+	WordRight   key.Binding
+	LineStart   key.Binding
+	LineEnd     key.Binding
+	DeleteWord  key.Binding
+	DeleteChar  key.Binding
+	ToggleHelp  key.Binding
 }
 
 // DefaultEditCellKeyMap returns the default keybindings for edit cell

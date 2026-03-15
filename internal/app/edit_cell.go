@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type EditCellModel struct {
@@ -151,7 +151,7 @@ func (m *EditCellModel) View() string {
 
 	content := fmt.Sprintf("%s\n\n", TitleStyle.Render(fmt.Sprintf("Edit Cell: %s", columnName)))
 	content += fmt.Sprintf("Value: %s\n\n", m.input.View())
-	
+
 	if m.showFullHelp {
 		content += m.help.FullHelpView(m.keyMap.FullHelp())
 	} else {

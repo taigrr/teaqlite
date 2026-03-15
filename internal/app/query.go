@@ -418,7 +418,7 @@ func (m *QueryModel) View() string {
 		content.WriteString("\n")
 
 		// Data rows with scrolling
-		visibleCount := Max(1, m.Shared.Height-10)
+		visibleCount := max(1, m.Shared.Height-10)
 		startIdx := 0
 
 		// Adjust start index if selected row is out of view
@@ -426,7 +426,7 @@ func (m *QueryModel) View() string {
 			startIdx = m.selectedRow - visibleCount + 1
 		}
 
-		endIdx := Min(len(m.results), startIdx+visibleCount)
+		endIdx := min(len(m.results), startIdx+visibleCount)
 
 		for i := range endIdx {
 			if i < startIdx {
@@ -465,4 +465,3 @@ func (m *QueryModel) View() string {
 
 	return content.String()
 }
-

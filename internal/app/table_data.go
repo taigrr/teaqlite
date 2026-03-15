@@ -5,10 +5,10 @@ import (
 	"sort"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type TableDataModel struct {
@@ -265,10 +265,10 @@ func (m *TableDataModel) filterData() {
 			row   []string
 			score int
 		}
-		
+
 		var matches []rowMatch
 		searchLower := strings.ToLower(searchValue)
-		
+
 		for _, row := range m.Shared.TableData {
 			bestScore := 0
 			// Check each cell in the row and take the best score
@@ -278,17 +278,17 @@ func (m *TableDataModel) filterData() {
 					bestScore = score
 				}
 			}
-			
+
 			if bestScore > 0 {
 				matches = append(matches, rowMatch{row: row, score: bestScore})
 			}
 		}
-		
+
 		// Sort by score (highest first)
 		sort.Slice(matches, func(i, j int) bool {
 			return matches[i].score > matches[j].score
 		})
-		
+
 		// Extract sorted rows
 		m.Shared.FilteredData = make([][]string, len(matches))
 		for i, match := range matches {
@@ -307,65 +307,65 @@ func (m *TableDataModel) fuzzyScore(text, pattern string) int {
 	if pattern == "" {
 		return 1
 	}
-	
+
 	textLen := len(text)
 	patternLen := len(pattern)
-	
+
 	if patternLen > textLen {
 		return 0
 	}
-	
+
 	// Exact match gets highest score
 	if text == pattern {
 		return 1000
 	}
-	
+
 	// Prefix match gets high score
 	if strings.HasPrefix(text, pattern) {
 		return 900
 	}
-	
+
 	// Contains match gets medium score
 	if strings.Contains(text, pattern) {
 		return 800
 	}
-	
+
 	// Fuzzy character sequence matching
 	score := 0
 	textIdx := 0
 	patternIdx := 0
 	consecutiveMatches := 0
-	
+
 	for textIdx < textLen && patternIdx < patternLen {
 		if text[textIdx] == pattern[patternIdx] {
 			score += 10
 			consecutiveMatches++
-			
+
 			// Bonus for consecutive matches
 			if consecutiveMatches > 1 {
 				score += consecutiveMatches * 5
 			}
-			
+
 			// Bonus for matches at word boundaries
 			if textIdx == 0 || text[textIdx-1] == '_' || text[textIdx-1] == '-' || text[textIdx-1] == ' ' {
 				score += 20
 			}
-			
+
 			patternIdx++
 		} else {
 			consecutiveMatches = 0
 		}
 		textIdx++
 	}
-	
+
 	// Must match all pattern characters
 	if patternIdx < patternLen {
 		return 0
 	}
-	
+
 	// Bonus for shorter text (more precise match)
 	score += (100 - textLen)
-	
+
 	return score
 }
 
@@ -409,18 +409,18 @@ func (m *TableDataModel) View() string {
 		content.WriteString("\n")
 
 		// Show data rows with scrolling within current page
-		visibleCount := Max(1, m.Shared.Height-10)
+		visibleCount := max(1, m.Shared.Height-10)
 		totalRows := len(m.Shared.FilteredData)
 		startIdx := 0
-		
+
 		// If there are more rows than can fit on screen, scroll the view
 		if totalRows > visibleCount && m.selectedRow >= visibleCount {
 			startIdx = m.selectedRow - visibleCount + 1
 			// Ensure we don't scroll past the end
 			startIdx = min(startIdx, totalRows-visibleCount)
 		}
-		
-		endIdx := Min(totalRows, startIdx+visibleCount)
+
+		endIdx := min(totalRows, startIdx+visibleCount)
 
 		for i := startIdx; i < endIdx; i++ {
 			row := m.Shared.FilteredData[i]

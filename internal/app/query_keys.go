@@ -8,25 +8,25 @@ import "github.com/charmbracelet/bubbles/key"
 // - G: go to end (single 'G' press)
 type QueryKeyMap struct {
 	// Input mode keys
-	Execute       key.Binding
-	Escape        key.Binding
-	CursorLeft    key.Binding
-	CursorRight   key.Binding
-	WordLeft      key.Binding
-	WordRight     key.Binding
-	LineStart     key.Binding
-	LineEnd       key.Binding
-	DeleteWord    key.Binding
-	
+	Execute     key.Binding
+	Escape      key.Binding
+	CursorLeft  key.Binding
+	CursorRight key.Binding
+	WordLeft    key.Binding
+	WordRight   key.Binding
+	LineStart   key.Binding
+	LineEnd     key.Binding
+	DeleteWord  key.Binding
+
 	// Results mode keys
-	Up            key.Binding
-	Down          key.Binding
-	Enter         key.Binding
-	EditQuery     key.Binding
-	GoToStart     key.Binding
-	GoToEnd       key.Binding
-	Back          key.Binding
-	ToggleHelp    key.Binding
+	Up         key.Binding
+	Down       key.Binding
+	Enter      key.Binding
+	EditQuery  key.Binding
+	GoToStart  key.Binding
+	GoToEnd    key.Binding
+	Back       key.Binding
+	ToggleHelp key.Binding
 }
 
 // DefaultQueryKeyMap returns the default keybindings for query view
@@ -69,7 +69,7 @@ func DefaultQueryKeyMap() QueryKeyMap {
 			key.WithKeys("ctrl+w"),
 			key.WithHelp("ctrl+w", "delete word"),
 		),
-		
+
 		// Results mode
 		Up: key.NewBinding(
 			key.WithKeys("up", "k"),
