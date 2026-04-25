@@ -234,8 +234,10 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.gPressed = false
 		if m.Shared.CurrentPage > 0 {
 			m.Shared.CurrentPage--
-			m.Shared.LoadTableData()
-			m.selectedRow = 0
+			if err := m.Shared.LoadTableData(); err == nil {
+				m.filterData()
+				m.selectedRow = 0
+			}
 		}
 
 	case key.Matches(msg, m.keyMap.Right):
@@ -243,8 +245,10 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		maxPage := (m.Shared.TotalRows - 1) / PageSize
 		if m.Shared.CurrentPage < maxPage {
 			m.Shared.CurrentPage++
-			m.Shared.LoadTableData()
-			m.selectedRow = 0
+			if err := m.Shared.LoadTableData(); err == nil {
+				m.filterData()
+				m.selectedRow = 0
+			}
 		}
 
 	default:
