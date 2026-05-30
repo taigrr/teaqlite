@@ -139,15 +139,26 @@ func (s *SharedData) LoadTables() error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
 	s.Tables = []string{}
 	for rows.Next() {
 		var name string
 		if err := rows.Scan(&name); err != nil {
+			if closeErr := rows.Close(); closeErr != nil {
+				return fmt.Errorf("scan table name: %w (close rows: %v)", err, closeErr)
+			}
 			return err
 		}
 		s.Tables = append(s.Tables, name)
+	}
+	if err := rows.Err(); err != nil {
+		if closeErr := rows.Close(); closeErr != nil {
+			return fmt.Errorf("iterate tables: %w (close rows: %v)", err, closeErr)
+		}
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
 	}
 	s.FilteredTables = make([]string, len(s.Tables))
 	copy(s.FilteredTables, s.Tables)
@@ -166,7 +177,6 @@ func (s *SharedData) LoadTableData() error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
 	s.Columns = []string{}
 	s.PrimaryKeys = []string{}
@@ -177,12 +187,24 @@ func (s *SharedData) LoadTableData() error {
 		var defaultValue sql.NullString
 
 		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err != nil {
+			if closeErr := rows.Close(); closeErr != nil {
+				return fmt.Errorf("scan table info: %w (close rows: %v)", err, closeErr)
+			}
 			return err
 		}
 		s.Columns = append(s.Columns, name)
 		if pk == 1 {
 			s.PrimaryKeys = append(s.PrimaryKeys, name)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		if closeErr := rows.Close(); closeErr != nil {
+			return fmt.Errorf("iterate table info: %w (close rows: %v)", err, closeErr)
+		}
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
 	}
 
 	// Get total row count
@@ -200,7 +222,6 @@ func (s *SharedData) LoadTableData() error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
 	s.TableData = [][]string{}
 	for rows.Next() {
@@ -211,6 +232,9 @@ func (s *SharedData) LoadTableData() error {
 		}
 
 		if err := rows.Scan(valuePtrs...); err != nil {
+			if closeErr := rows.Close(); closeErr != nil {
+				return fmt.Errorf("scan table row: %w (close rows: %v)", err, closeErr)
+			}
 			return err
 		}
 
@@ -223,6 +247,15 @@ func (s *SharedData) LoadTableData() error {
 			}
 		}
 		s.TableData = append(s.TableData, row)
+	}
+	if err := rows.Err(); err != nil {
+		if closeErr := rows.Close(); closeErr != nil {
+			return fmt.Errorf("iterate table data: %w (close rows: %v)", err, closeErr)
+		}
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
 	}
 
 	s.FilteredData = make([][]string, len(s.TableData))
@@ -284,7 +317,7 @@ func (s *SharedData) UpdateCell(rowIndex, colIndex int, newValue string) error {
 				return fmt.Errorf("failed to find primary key value for %s: %v", pkCol, err)
 			}
 
-			whereClause.WriteString(fmt.Sprintf("%s = ?", pkCol))
+			fmt.Fprintf(&whereClause, "%s = ?", pkCol)
 			args = append(args, pkValue)
 		}
 	} else {
@@ -299,7 +332,7 @@ func (s *SharedData) UpdateCell(rowIndex, colIndex int, newValue string) error {
 				return fmt.Errorf("failed to find column value for %s: %v", col, err)
 			}
 
-			whereClause.WriteString(fmt.Sprintf("%s = ?", col))
+			fmt.Fprintf(&whereClause, "%s = ?", col)
 			args = append(args, colValue)
 		}
 	}
@@ -341,7 +374,6 @@ func (s *SharedData) getTableInfo(tableName string) ([]string, []string, error) 
 	if err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
 
 	var columns []string
 	var primaryKeys []string
@@ -353,12 +385,24 @@ func (s *SharedData) getTableInfo(tableName string) ([]string, []string, error) 
 		var defaultValue sql.NullString
 
 		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err != nil {
+			if closeErr := rows.Close(); closeErr != nil {
+				return nil, nil, fmt.Errorf("scan table info: %w (close rows: %v)", err, closeErr)
+			}
 			return nil, nil, err
 		}
 		columns = append(columns, name)
 		if pk == 1 {
 			primaryKeys = append(primaryKeys, name)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, nil, fmt.Errorf("iterate table info: %w (close rows: %v)", err, closeErr)
+		}
+		return nil, nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, nil, err
 	}
 
 	return columns, primaryKeys, nil
@@ -395,7 +439,7 @@ func (s *SharedData) findColumnValue(rowIndex int, columnName string, _ []string
 			}
 
 			if pkIndex >= 0 {
-				whereClause.WriteString(fmt.Sprintf("%s = ?", pkCol))
+				fmt.Fprintf(&whereClause, "%s = ?", pkCol)
 				args = append(args, s.FilteredData[rowIndex][pkIndex])
 			}
 		}

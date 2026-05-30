@@ -158,9 +158,10 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.gPressed {
 			// Second g - go to absolute beginning (gg pattern like vim)
 			m.Shared.CurrentPage = 0
-			m.Shared.LoadTableData()
-			m.filterData()
-			m.selectedRow = 0
+			if err := m.Shared.LoadTableData(); err == nil {
+				m.filterData()
+				m.selectedRow = 0
+			}
 			m.gPressed = false
 		} else {
 			// First g - wait for second g to complete gg sequence
@@ -172,9 +173,10 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Go to absolute end (G pattern like vim)
 		maxPage := (m.Shared.TotalRows - 1) / PageSize
 		m.Shared.CurrentPage = maxPage
-		m.Shared.LoadTableData()
-		m.filterData()
-		m.selectedRow = len(m.Shared.FilteredData) - 1
+		if err := m.Shared.LoadTableData(); err == nil {
+			m.filterData()
+			m.selectedRow = len(m.Shared.FilteredData) - 1
+		}
 		m.gPressed = false
 		return m, nil
 
@@ -210,9 +212,10 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else if m.Shared.CurrentPage > 0 {
 			// At top of current page, go to previous page
 			m.Shared.CurrentPage--
-			m.Shared.LoadTableData()
-			m.filterData()
-			m.selectedRow = len(m.Shared.FilteredData) - 1 // Go to last row of previous page
+			if err := m.Shared.LoadTableData(); err == nil {
+				m.filterData()
+				m.selectedRow = len(m.Shared.FilteredData) - 1 // Go to last row of previous page
+			}
 		}
 
 	case key.Matches(msg, m.keyMap.Down):
@@ -224,9 +227,10 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			maxPage := (m.Shared.TotalRows - 1) / PageSize
 			if m.Shared.CurrentPage < maxPage {
 				m.Shared.CurrentPage++
-				m.Shared.LoadTableData()
-				m.filterData()
-				m.selectedRow = 0 // Go to first row of next page
+				if err := m.Shared.LoadTableData(); err == nil {
+					m.filterData()
+					m.selectedRow = 0 // Go to first row of next page
+				}
 			}
 		}
 
@@ -388,15 +392,15 @@ func (m *TableDataModel) View() string {
 		content.WriteString("\nSearch: " + m.searchInput.View())
 		content.WriteString("\n")
 	} else if m.searchInput.Value() != "" {
-		content.WriteString(fmt.Sprintf("\nFiltered by: %s (%d/%d rows)",
-			m.searchInput.Value(), len(m.Shared.FilteredData), len(m.Shared.TableData)))
+		fmt.Fprintf(&content, "\nFiltered by: %s (%d/%d rows)",
+			m.searchInput.Value(), len(m.Shared.FilteredData), len(m.Shared.TableData))
 		content.WriteString("\n")
 	}
 
 	// Show pagination info
 	totalPages := (m.Shared.TotalRows-1)/PageSize + 1
-	content.WriteString(fmt.Sprintf("Page %d/%d (%d total rows)\n\n",
-		m.Shared.CurrentPage+1, totalPages, m.Shared.TotalRows))
+	fmt.Fprintf(&content, "Page %d/%d (%d total rows)\n\n",
+		m.Shared.CurrentPage+1, totalPages, m.Shared.TotalRows)
 
 	if len(m.Shared.FilteredData) == 0 {
 		content.WriteString("No data found")

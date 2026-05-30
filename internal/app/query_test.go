@@ -9,7 +9,6 @@ import (
 
 func TestExtractTableName(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	m := NewQueryModel(shared)
@@ -43,7 +42,6 @@ func TestExtractTableName(t *testing.T) {
 
 func TestGetTablePrimaryKeys(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -62,17 +60,16 @@ func TestGetTablePrimaryKeys(t *testing.T) {
 
 func TestEnsureIDColumns(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
 	m := NewQueryModel(shared)
 
 	tests := []struct {
-		name     string
-		query    string
-		contains string // expected substring in result
-		unchanged bool  // if true, expect query unchanged
+		name      string
+		query     string
+		contains  string // expected substring in result
+		unchanged bool   // if true, expect query unchanged
 	}{
 		{"select star unchanged", "SELECT * FROM users", "SELECT *", true},
 		{"already has id", "SELECT id, name FROM users", "SELECT id", true},
@@ -109,7 +106,6 @@ func containsSubstring(s, substr string) bool {
 
 func TestQueryModelNewDefaults(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	m := NewQueryModel(shared)
@@ -130,7 +126,6 @@ func TestQueryModelNewDefaults(t *testing.T) {
 
 func TestQueryModelFocusBlur(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	m := NewQueryModel(shared)
@@ -148,7 +143,6 @@ func TestQueryModelFocusBlur(t *testing.T) {
 
 func TestQueryModelWithOptions(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	km := DefaultQueryKeyMap()
@@ -161,7 +155,6 @@ func TestQueryModelWithOptions(t *testing.T) {
 
 func TestHandleQueryCompletion(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -202,7 +195,6 @@ func TestHandleQueryCompletion(t *testing.T) {
 
 func TestQueryModelView(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	shared.Width = 80

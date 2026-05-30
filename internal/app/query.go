@@ -297,7 +297,6 @@ func (m *QueryModel) getTablePrimaryKeys(tableName string) []string {
 	if err != nil {
 		return nil
 	}
-	defer rows.Close()
 
 	var primaryKeys []string
 	for rows.Next() {
@@ -314,6 +313,9 @@ func (m *QueryModel) getTablePrimaryKeys(tableName string) []string {
 			primaryKeys = append(primaryKeys, name)
 		}
 	}
+	if err := rows.Close(); err != nil {
+		return nil
+	}
 
 	return primaryKeys
 }
@@ -327,11 +329,11 @@ func (m *QueryModel) executeQuery() tea.Cmd {
 		if err != nil {
 			return QueryCompletedMsg{Error: err}
 		}
-		defer rows.Close()
 
 		// Get column names
 		columns, err := rows.Columns()
 		if err != nil {
+			_ = rows.Close()
 			return QueryCompletedMsg{Error: err}
 		}
 
@@ -345,6 +347,7 @@ func (m *QueryModel) executeQuery() tea.Cmd {
 			}
 
 			if err := rows.Scan(valuePtrs...); err != nil {
+				_ = rows.Close()
 				return QueryCompletedMsg{Error: err}
 			}
 
@@ -357,6 +360,13 @@ func (m *QueryModel) executeQuery() tea.Cmd {
 				}
 			}
 			results = append(results, row)
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return QueryCompletedMsg{Error: err}
+		}
+		if err := rows.Close(); err != nil {
+			return QueryCompletedMsg{Error: err}
 		}
 
 		return QueryCompletedMsg{
@@ -449,7 +459,7 @@ func (m *QueryModel) View() string {
 			content.WriteString("\n")
 		}
 
-		content.WriteString(fmt.Sprintf("\n%d rows returned\n", len(m.results)))
+		fmt.Fprintf(&content, "\n%d rows returned\n", len(m.results))
 	}
 
 	content.WriteString("\n")

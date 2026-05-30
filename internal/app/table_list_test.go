@@ -9,7 +9,6 @@ import (
 
 func TestTableListModelDefaults(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -31,7 +30,6 @@ func TestTableListModelDefaults(t *testing.T) {
 
 func TestTableListModelFocusBlur(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -50,7 +48,6 @@ func TestTableListModelFocusBlur(t *testing.T) {
 
 func TestTableListModelWithOptions(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -64,7 +61,6 @@ func TestTableListModelWithOptions(t *testing.T) {
 
 func TestFuzzyScore(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	m := NewTableListModel(shared)
@@ -108,7 +104,6 @@ func TestFuzzyScore(t *testing.T) {
 
 func TestFilterTables(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -150,7 +145,6 @@ func TestFilterTables(t *testing.T) {
 
 func TestGetVisibleCount(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	shared.Height = 24
@@ -180,7 +174,6 @@ func TestGetVisibleCount(t *testing.T) {
 
 func TestAdjustPage(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	shared.Height = 24
@@ -196,7 +189,6 @@ func TestAdjustPage(t *testing.T) {
 
 func TestTableListModelView(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	shared.Width = 80
@@ -237,7 +229,6 @@ func TestTableListModelViewEmptyDB(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()

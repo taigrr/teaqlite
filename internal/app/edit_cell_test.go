@@ -8,7 +8,6 @@ import (
 
 func TestEditCellModelDefaults(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -33,7 +32,6 @@ func TestEditCellModelDefaults(t *testing.T) {
 
 func TestEditCellModelFocusBlur(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -55,7 +53,6 @@ func TestEditCellModelFocusBlur(t *testing.T) {
 
 func TestEditCellModelWithOptions(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -72,7 +69,6 @@ func TestEditCellModelWithOptions(t *testing.T) {
 
 func TestEditCellModelView(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	shared.Width = 80
@@ -94,7 +90,6 @@ func TestEditCellModelView(t *testing.T) {
 
 func TestEditCellModelOutOfBounds(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
