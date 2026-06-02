@@ -8,7 +8,6 @@ import (
 
 func TestRowDetailModelDefaults(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -27,7 +26,6 @@ func TestRowDetailModelDefaults(t *testing.T) {
 
 func TestRowDetailModelFocusBlur(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -49,7 +47,6 @@ func TestRowDetailModelFocusBlur(t *testing.T) {
 
 func TestRowDetailModelView(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	shared.Width = 80
@@ -68,7 +65,6 @@ func TestRowDetailModelView(t *testing.T) {
 
 func TestRowDetailModelWithOptions(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()

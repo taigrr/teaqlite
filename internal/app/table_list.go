@@ -374,8 +374,8 @@ func (m *TableListModel) View() string {
 		content.WriteString("\nSearch: " + m.searchInput.View())
 		content.WriteString("\n")
 	} else if m.searchInput.Value() != "" {
-		content.WriteString(fmt.Sprintf("\nFiltered by: %s (%d/%d tables)",
-			m.searchInput.Value(), len(m.Shared.FilteredTables), len(m.Shared.Tables)))
+		fmt.Fprintf(&content, "\nFiltered by: %s (%d/%d tables)",
+			m.searchInput.Value(), len(m.Shared.FilteredTables), len(m.Shared.Tables))
 		content.WriteString("\n")
 	}
 	content.WriteString("\n")
@@ -403,7 +403,7 @@ func (m *TableListModel) View() string {
 
 		if len(m.Shared.FilteredTables) > visibleCount {
 			totalPages := (len(m.Shared.FilteredTables)-1)/visibleCount + 1
-			content.WriteString(fmt.Sprintf("\nPage %d/%d", m.currentPage+1, totalPages))
+			fmt.Fprintf(&content, "\nPage %d/%d", m.currentPage+1, totalPages)
 		}
 	}
 

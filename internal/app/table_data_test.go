@@ -65,7 +65,6 @@ func newLoadedTableDataModel(t *testing.T, db *sql.DB) *TableDataModel {
 
 func TestTableDataModelDefaults(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -90,7 +89,6 @@ func TestTableDataModelDefaults(t *testing.T) {
 
 func TestTableDataModelFocusBlur(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	_ = shared.LoadTables()
@@ -111,7 +109,6 @@ func TestTableDataModelFocusBlur(t *testing.T) {
 
 func TestTableDataFuzzyScore(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	m := newLoadedTableDataModel(t, db)
 
@@ -145,7 +142,6 @@ func TestTableDataFuzzyScore(t *testing.T) {
 
 func TestTableDataFilterData(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	m := newLoadedTableDataModel(t, db)
 
@@ -173,7 +169,6 @@ func TestTableDataFilterData(t *testing.T) {
 
 func TestTableDataPagingPreservesFilter(t *testing.T) {
 	db := createPaginatedUsersDB(t, PageSize+1)
-	defer db.Close()
 
 	m := newLoadedTableDataModel(t, db)
 	m.searchInput.SetValue("special")
@@ -207,7 +202,6 @@ func TestTableDataPagingPreservesFilter(t *testing.T) {
 
 func TestTableDataModelView(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	shared.Width = 80

@@ -120,12 +120,17 @@ func createTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("failed to create test data: %v", err)
 	}
 
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("failed to close test database: %v", err)
+		}
+	})
+
 	return db
 }
 
 func TestNewSharedData(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	if shared.DB != db {
@@ -138,7 +143,6 @@ func TestNewSharedData(t *testing.T) {
 
 func TestSharedDataLoadTables(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	if err := shared.LoadTables(); err != nil {
@@ -162,7 +166,6 @@ func TestSharedDataLoadTables(t *testing.T) {
 
 func TestSharedDataLoadTableData(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	if err := shared.LoadTables(); err != nil {
@@ -203,7 +206,6 @@ func TestSharedDataLoadTableData(t *testing.T) {
 
 func TestSharedDataLoadTableDataInvalidIndex(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	if err := shared.LoadTables(); err != nil {
@@ -218,7 +220,6 @@ func TestSharedDataLoadTableDataInvalidIndex(t *testing.T) {
 
 func TestSharedDataUpdateCell(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	if err := shared.LoadTables(); err != nil {
@@ -254,7 +255,6 @@ func TestSharedDataUpdateCell(t *testing.T) {
 
 func TestSharedDataUpdateCellInvalidIndex(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	if err := shared.LoadTables(); err != nil {
@@ -275,7 +275,6 @@ func TestSharedDataUpdateCellInvalidIndex(t *testing.T) {
 
 func TestSharedDataPagination(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	// Insert enough rows to test pagination
 	for i := 0; i < 25; i++ {
@@ -316,7 +315,6 @@ func TestSharedDataPagination(t *testing.T) {
 
 func TestInitialModel(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	m := InitialModel(db)
 	if m.Err() != nil {
@@ -332,7 +330,6 @@ func TestInitialModel(t *testing.T) {
 
 func TestInitialModelWithOptions(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	km := DefaultAppKeyMap()
 	m := InitialModel(db, WithKeyMap(km), WithDimensions(120, 40))
@@ -346,7 +343,6 @@ func TestInitialModelWithOptions(t *testing.T) {
 
 func TestModelFocusBlur(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	m := InitialModel(db)
 	if !m.Focused() {
@@ -366,7 +362,6 @@ func TestModelFocusBlur(t *testing.T) {
 
 func TestInferTableFromQueryResult(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	if err := shared.LoadTables(); err != nil {
@@ -394,7 +389,6 @@ func TestInferTableFromQueryResult(t *testing.T) {
 
 func TestGetTableInfo(t *testing.T) {
 	db := createTestDB(t)
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	cols, pks, err := shared.getTableInfo("users")
@@ -415,7 +409,6 @@ func TestSharedDataEmptyDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
-	defer db.Close()
 
 	shared := NewSharedData(db)
 	if err := shared.LoadTables(); err != nil {
