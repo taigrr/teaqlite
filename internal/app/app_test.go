@@ -76,6 +76,14 @@ func TestNextID(t *testing.T) {
 	}
 }
 
+func TestQuoteIdentifier(t *testing.T) {
+	got := quoteIdentifier(`weird "table" name`)
+	want := `"weird ""table"" name"`
+	if got != want {
+		t.Fatalf("quoteIdentifier() = %q, want %q", got, want)
+	}
+}
+
 func TestDefaultAppKeyMap(t *testing.T) {
 	km := DefaultAppKeyMap()
 
@@ -201,6 +209,63 @@ func TestSharedDataLoadTableData(t *testing.T) {
 	// Should not be marked as query result
 	if shared.IsQueryResult {
 		t.Error("regular table load should not be marked as query result")
+	}
+}
+
+func TestSharedDataLoadAndUpdateQuotedIdentifiers(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open test database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("failed to close test database: %v", err)
+		}
+	})
+
+	_, err = db.Exec(`
+		CREATE TABLE "select data" (
+			"row id" INTEGER PRIMARY KEY,
+			"display name" TEXT NOT NULL
+		);
+		INSERT INTO "select data" ("display name") VALUES ('Alice');
+	`)
+	if err != nil {
+		t.Fatalf("failed to create quoted identifier test data: %v", err)
+	}
+
+	shared := NewSharedData(db)
+	if err := shared.LoadTables(); err != nil {
+		t.Fatalf("LoadTables() failed: %v", err)
+	}
+	for index, tableName := range shared.FilteredTables {
+		if tableName == "select data" {
+			shared.SelectedTable = index
+			break
+		}
+	}
+
+	if err := shared.LoadTableData(); err != nil {
+		t.Fatalf("LoadTableData() failed for quoted identifiers: %v", err)
+	}
+	if len(shared.Columns) != 2 || shared.Columns[0] != "row id" || shared.Columns[1] != "display name" {
+		t.Fatalf("unexpected quoted identifier columns: %v", shared.Columns)
+	}
+	if len(shared.TableData) != 1 || shared.TableData[0][1] != "Alice" {
+		t.Fatalf("unexpected quoted identifier table data: %v", shared.TableData)
+	}
+
+	if err := shared.UpdateCell(0, 1, "Alicia"); err != nil {
+		t.Fatalf("UpdateCell() failed for quoted identifiers: %v", err)
+	}
+
+	var got string
+	err = db.QueryRow(`SELECT "display name" FROM "select data" WHERE "row id" = 1`).Scan(&got)
+	if err != nil {
+		t.Fatalf("failed to verify quoted identifier update: %v", err)
+	}
+	if got != "Alicia" {
+		t.Fatalf("quoted identifier update stored %q, want Alicia", got)
 	}
 }
 

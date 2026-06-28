@@ -293,7 +293,7 @@ func (m *QueryModel) extractTableName(query string) string {
 }
 
 func (m *QueryModel) getTablePrimaryKeys(tableName string) []string {
-	rows, err := m.Shared.DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
+	rows, err := m.Shared.DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", quoteIdentifier(tableName)))
 	if err != nil {
 		return nil
 	}

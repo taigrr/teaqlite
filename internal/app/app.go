@@ -23,6 +23,10 @@ func nextID() int {
 	return int(atomic.AddInt64(&lastID, 1))
 }
 
+func quoteIdentifier(identifier string) string {
+	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`
+}
+
 // Common message types
 type blinkMsg struct{}
 
@@ -173,7 +177,9 @@ func (s *SharedData) LoadTableData() error {
 	tableName := s.FilteredTables[s.SelectedTable]
 
 	// Get column info and primary keys
-	rows, err := s.DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
+	quotedTableName := quoteIdentifier(tableName)
+
+	rows, err := s.DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", quotedTableName))
 	if err != nil {
 		return err
 	}
@@ -208,7 +214,7 @@ func (s *SharedData) LoadTableData() error {
 	}
 
 	// Get total row count
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", tableName)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", quotedTableName)
 	err = s.DB.QueryRow(countQuery).Scan(&s.TotalRows)
 	if err != nil {
 		return err
@@ -216,7 +222,7 @@ func (s *SharedData) LoadTableData() error {
 
 	// Get paginated data
 	offset := s.CurrentPage * PageSize
-	dataQuery := fmt.Sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", tableName, PageSize, offset)
+	dataQuery := fmt.Sprintf("SELECT * FROM %s LIMIT %d OFFSET %d", quotedTableName, PageSize, offset)
 
 	rows, err = s.DB.Query(dataQuery)
 	if err != nil {
@@ -317,7 +323,7 @@ func (s *SharedData) UpdateCell(rowIndex, colIndex int, newValue string) error {
 				return fmt.Errorf("failed to find primary key value for %s: %v", pkCol, err)
 			}
 
-			fmt.Fprintf(&whereClause, "%s = ?", pkCol)
+			fmt.Fprintf(&whereClause, "%s = ?", quoteIdentifier(pkCol))
 			args = append(args, pkValue)
 		}
 	} else {
@@ -332,13 +338,18 @@ func (s *SharedData) UpdateCell(rowIndex, colIndex int, newValue string) error {
 				return fmt.Errorf("failed to find column value for %s: %v", col, err)
 			}
 
-			fmt.Fprintf(&whereClause, "%s = ?", col)
+			fmt.Fprintf(&whereClause, "%s = ?", quoteIdentifier(col))
 			args = append(args, colValue)
 		}
 	}
 
 	// Execute UPDATE
-	updateQuery := fmt.Sprintf("UPDATE %s SET %s = ? WHERE %s", tableName, columnName, whereClause.String())
+	updateQuery := fmt.Sprintf(
+		"UPDATE %s SET %s = ? WHERE %s",
+		quoteIdentifier(tableName),
+		quoteIdentifier(columnName),
+		whereClause.String(),
+	)
 	args = append([]any{newValue}, args...)
 
 	_, err = s.DB.Exec(updateQuery, args...)
@@ -370,7 +381,7 @@ func (s *SharedData) UpdateCell(rowIndex, colIndex int, newValue string) error {
 
 // Helper function to get table info
 func (s *SharedData) getTableInfo(tableName string) ([]string, []string, error) {
-	rows, err := s.DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
+	rows, err := s.DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", quoteIdentifier(tableName)))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -439,7 +450,7 @@ func (s *SharedData) findColumnValue(rowIndex int, columnName string, _ []string
 			}
 
 			if pkIndex >= 0 {
-				fmt.Fprintf(&whereClause, "%s = ?", pkCol)
+				fmt.Fprintf(&whereClause, "%s = ?", quoteIdentifier(pkCol))
 				args = append(args, s.FilteredData[rowIndex][pkIndex])
 			}
 		}
@@ -451,7 +462,12 @@ func (s *SharedData) findColumnValue(rowIndex int, columnName string, _ []string
 				tableName, _ = s.inferTableFromQueryResult(rowIndex, 0)
 			}
 
-			query := fmt.Sprintf("SELECT %s FROM %s WHERE %s", columnName, tableName, whereClause.String())
+			query := fmt.Sprintf(
+				"SELECT %s FROM %s WHERE %s",
+				quoteIdentifier(columnName),
+				quoteIdentifier(tableName),
+				whereClause.String(),
+			)
 			var value string
 			err := s.DB.QueryRow(query, args...).Scan(&value)
 			if err != nil {
