@@ -157,10 +157,13 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 	case key.Matches(msg, m.keyMap.GoToStart):
 		if m.gPressed {
 			// Second g - go to absolute beginning (gg pattern like vim)
+			prevPage := m.Shared.CurrentPage
 			m.Shared.CurrentPage = 0
 			if err := m.Shared.LoadTableData(); err == nil {
 				m.filterData()
 				m.selectedRow = 0
+			} else {
+				m.Shared.CurrentPage = prevPage
 			}
 			m.gPressed = false
 		} else {
@@ -171,11 +174,14 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 
 	case key.Matches(msg, m.keyMap.GoToEnd):
 		// Go to absolute end (G pattern like vim)
+		prevPage := m.Shared.CurrentPage
 		maxPage := (m.Shared.TotalRows - 1) / PageSize
 		m.Shared.CurrentPage = maxPage
 		if err := m.Shared.LoadTableData(); err == nil {
 			m.filterData()
 			m.selectedRow = max(0, len(m.Shared.FilteredData)-1)
+		} else {
+			m.Shared.CurrentPage = prevPage
 		}
 		m.gPressed = false
 		return m, nil
@@ -215,6 +221,8 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 			if err := m.Shared.LoadTableData(); err == nil {
 				m.filterData()
 				m.selectedRow = max(0, len(m.Shared.FilteredData)-1) // Go to last row of previous page
+			} else {
+				m.Shared.CurrentPage++
 			}
 		}
 
@@ -230,6 +238,8 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 				if err := m.Shared.LoadTableData(); err == nil {
 					m.filterData()
 					m.selectedRow = 0 // Go to first row of next page
+				} else {
+					m.Shared.CurrentPage--
 				}
 			}
 		}
@@ -241,6 +251,8 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 			if err := m.Shared.LoadTableData(); err == nil {
 				m.filterData()
 				m.selectedRow = 0
+			} else {
+				m.Shared.CurrentPage++
 			}
 		}
 
@@ -252,6 +264,8 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 			if err := m.Shared.LoadTableData(); err == nil {
 				m.filterData()
 				m.selectedRow = 0
+			} else {
+				m.Shared.CurrentPage--
 			}
 		}
 
