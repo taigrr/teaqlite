@@ -361,6 +361,9 @@ func (m *QueryModel) getTablePrimaryKeys(tableName string) []string {
 			primaryKeys = append(primaryKeys, name)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil
+	}
 	if err := rows.Close(); err != nil {
 		return nil
 	}
