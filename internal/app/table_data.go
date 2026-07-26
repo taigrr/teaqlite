@@ -175,7 +175,7 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 		m.Shared.CurrentPage = maxPage
 		if err := m.Shared.LoadTableData(); err == nil {
 			m.filterData()
-			m.selectedRow = len(m.Shared.FilteredData) - 1
+			m.selectedRow = max(0, len(m.Shared.FilteredData)-1)
 		}
 		m.gPressed = false
 		return m, nil
@@ -214,7 +214,7 @@ func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 			m.Shared.CurrentPage--
 			if err := m.Shared.LoadTableData(); err == nil {
 				m.filterData()
-				m.selectedRow = len(m.Shared.FilteredData) - 1 // Go to last row of previous page
+				m.selectedRow = max(0, len(m.Shared.FilteredData)-1) // Go to last row of previous page
 			}
 		}
 

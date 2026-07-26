@@ -82,6 +82,7 @@ teaqlite sample.db
 | `gg`      | Jump to start   |
 | `G`       | Jump to end     |
 | `q`       | Back to tables  |
+| `esc`     | Back to tables  |
 | `s`       | SQL query mode  |
 | `r`       | Refresh         |
 
@@ -99,11 +100,13 @@ teaqlite sample.db
 
 | Key     | Action          |
 | ------- | --------------- |
-| `enter` | Execute query   |
-| `esc`   | Back to tables  |
+| `enter` | Execute query    |
+| `esc`   | Back to tables   |
 | `↑`/`k` | Navigate results |
 | `↓`/`j` | Navigate results |
-| `e`     | Edit query      |
+| `gg`    | Jump to start    |
+| `G`     | Jump to end      |
+| `e`     | Edit query       |
 
 ### Edit Cell
 
