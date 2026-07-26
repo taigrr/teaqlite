@@ -1,5 +1,9 @@
 # TeaQLite
 
+[![Test](https://github.com/taigrr/teaqlite/actions/workflows/test.yml/badge.svg)](https://github.com/taigrr/teaqlite/actions/workflows/test.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/taigrr/teaqlite.svg)](https://pkg.go.dev/github.com/taigrr/teaqlite)
+[![License: 0BSD](https://img.shields.io/badge/License-0BSD-blue.svg)](LICENSE)
+
 A colorful-but-minimal terminal user interface for browsing SQLite databases built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
 
 ## Features

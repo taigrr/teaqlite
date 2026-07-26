@@ -12,6 +12,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/taigrr/teaqlite/internal/app"
+	"github.com/taigrr/teaqlite/internal/version"
 )
 
 var (
@@ -51,7 +52,7 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() error {
-	return fang.Execute(context.Background(), rootCmd)
+	return fang.Execute(context.Background(), rootCmd, fang.WithVersion(version.Version))
 }
 
 func init() {
