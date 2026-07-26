@@ -23,7 +23,10 @@ func TestExtractTableName(t *testing.T) {
 		{"case insensitive", "select * from Users", "Users"},
 		{"with alias", "SELECT * FROM users u WHERE u.id = 1", "users"},
 		{"quoted table", `SELECT * FROM "users"`, "users"},
+		{"quoted table with space", `SELECT "display name" FROM "select data"`, "select data"},
+		{"quoted table with escaped quote", `SELECT * FROM "weird ""table"""`, `weird "table"`},
 		{"backtick table", "SELECT * FROM `users`", "users"},
+		{"bracket table with space", "SELECT * FROM [select data]", "select data"},
 		{"no from clause", "SELECT 1", ""},
 		{"empty query", "", ""},
 		{"with limit", "SELECT * FROM users LIMIT 10", "users"},
@@ -88,6 +91,39 @@ func TestEnsureIDColumns(t *testing.T) {
 				t.Errorf("expected result to contain %q, got %q", tt.contains, got)
 			}
 		})
+	}
+}
+
+func TestEnsureIDColumnsWithQuotedIdentifiers(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open test database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("failed to close test database: %v", err)
+		}
+	})
+
+	_, err = db.Exec(`
+		CREATE TABLE "select data" (
+			"row id" INTEGER PRIMARY KEY,
+			"display name" TEXT NOT NULL
+		);
+	`)
+	if err != nil {
+		t.Fatalf("failed to create quoted identifier test data: %v", err)
+	}
+
+	shared := NewSharedData(db)
+	_ = shared.LoadTables()
+	m := NewQueryModel(shared)
+
+	query := `SELECT "display name" FROM "select data"`
+	got := m.ensureIDColumns(query)
+	want := `SELECT "row id", "display name" FROM "select data"`
+	if got != want {
+		t.Fatalf("ensureIDColumns(%q) = %q, want %q", query, got, want)
 	}
 }
 

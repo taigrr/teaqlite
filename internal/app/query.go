@@ -256,8 +256,10 @@ func (m *QueryModel) ensureIDColumns(query string) string {
 	selectClause := strings.TrimSpace(query[selectIndex+6 : fromIndex])
 
 	// Add primary keys to the beginning
-	var pkList []string
-	pkList = append(pkList, primaryKeys...)
+	pkList := make([]string, 0, len(primaryKeys))
+	for _, primaryKey := range primaryKeys {
+		pkList = append(pkList, quoteIdentifier(primaryKey))
+	}
 
 	newSelectClause := strings.Join(pkList, ", ") + ", " + selectClause
 
@@ -277,23 +279,69 @@ func (m *QueryModel) extractTableName(query string) string {
 	// Extract everything after FROM
 	afterFrom := strings.TrimSpace(query[fromIndex+4:])
 
-	// Split by whitespace and take the first word (table name)
-	parts := strings.Fields(afterFrom)
-	if len(parts) == 0 {
+	if afterFrom == "" {
 		return ""
 	}
 
-	// Remove any alias or additional clauses
-	tableName := parts[0]
-
-	// Remove quotes if present
-	tableName = strings.Trim(tableName, "\"'`")
+	tableName, ok := readSQLIdentifier(afterFrom)
+	if !ok {
+		return ""
+	}
 
 	return tableName
 }
 
+func readSQLIdentifier(input string) (string, bool) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return "", false
+	}
+
+	if strings.HasPrefix(input, `"`) || strings.HasPrefix(input, "`") || strings.HasPrefix(input, "'") {
+		return readDelimitedIdentifier(input, input[0], input[0])
+	}
+	if strings.HasPrefix(input, "[") {
+		return readDelimitedIdentifier(input, '[', ']')
+	}
+
+	end := len(input)
+	for index, char := range input {
+		if char == ' ' || char == '\t' || char == '\n' || char == '\r' {
+			end = index
+			break
+		}
+	}
+
+	return input[:end], true
+}
+
+func readDelimitedIdentifier(input string, open, close byte) (string, bool) {
+	if len(input) < 2 || input[0] != open {
+		return "", false
+	}
+
+	var identifier strings.Builder
+	for index := 1; index < len(input); index++ {
+		char := input[index]
+		if char != close {
+			identifier.WriteByte(char)
+			continue
+		}
+
+		if index+1 < len(input) && input[index+1] == close && open == close {
+			identifier.WriteByte(close)
+			index++
+			continue
+		}
+
+		return identifier.String(), true
+	}
+
+	return "", false
+}
+
 func (m *QueryModel) getTablePrimaryKeys(tableName string) []string {
-	rows, err := m.Shared.DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
+	rows, err := m.Shared.DB.Query(fmt.Sprintf("PRAGMA table_info(%s)", quoteIdentifier(tableName)))
 	if err != nil {
 		return nil
 	}
