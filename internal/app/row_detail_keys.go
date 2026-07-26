@@ -1,6 +1,6 @@
 package app
 
-import "github.com/charmbracelet/bubbles/key"
+import "charm.land/bubbles/v2/key"
 
 // RowDetailKeyMap defines keybindings for the row detail view.
 // Navigation follows vim-like patterns:

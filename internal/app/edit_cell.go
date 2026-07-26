@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 )
 
 type EditCellModel struct {
@@ -47,7 +47,7 @@ func NewEditCellModel(shared *SharedData, rowIndex, colIndex int, opts ...EditCe
 
 	input := textinput.New()
 	input.SetValue(value)
-	input.Width = 50
+	input.SetWidth(50)
 	input.Focus()
 
 	m := &EditCellModel{
@@ -99,7 +99,7 @@ func (m *EditCellModel) Init() tea.Cmd {
 	)
 }
 
-func (m *EditCellModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *EditCellModel) Update(msg tea.Msg) (viewModel, tea.Cmd) {
 	if !m.focused {
 		return m, nil
 	}
@@ -115,7 +115,7 @@ func (m *EditCellModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.blinkState = !m.blinkState
 		cmds = append(cmds, blinkCmd())
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keyMap.Save):
 			return m, func() tea.Msg {

@@ -1,6 +1,6 @@
 package app
 
-import "github.com/charmbracelet/bubbles/key"
+import "charm.land/bubbles/v2/key"
 
 // EditCellKeyMap defines keybindings for the edit cell view
 type EditCellKeyMap struct {

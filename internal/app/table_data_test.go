@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	_ "modernc.org/sqlite"
 )
 
@@ -178,7 +178,7 @@ func TestTableDataPagingPreservesFilter(t *testing.T) {
 		t.Fatalf("expected no matches on first page, got %d", got)
 	}
 
-	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	_, _ = m.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
 
 	if m.Shared.CurrentPage != 1 {
 		t.Fatalf("expected to move to page 1, got %d", m.Shared.CurrentPage)
@@ -190,7 +190,7 @@ func TestTableDataPagingPreservesFilter(t *testing.T) {
 		t.Fatalf("expected Special Match row after paging, got %v", m.Shared.FilteredData[0])
 	}
 
-	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+	_, _ = m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
 
 	if m.Shared.CurrentPage != 0 {
 		t.Fatalf("expected to move back to page 0, got %d", m.Shared.CurrentPage)

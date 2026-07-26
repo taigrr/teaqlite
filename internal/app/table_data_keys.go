@@ -1,6 +1,6 @@
 package app
 
-import "github.com/charmbracelet/bubbles/key"
+import "charm.land/bubbles/v2/key"
 
 // TableDataKeyMap defines keybindings for the table data view.
 // Navigation follows vim-like patterns:

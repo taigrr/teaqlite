@@ -5,10 +5,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 )
 
 type TableDataModel struct {
@@ -38,7 +38,7 @@ func NewTableDataModel(shared *SharedData, opts ...TableDataOption) *TableDataMo
 	searchInput := textinput.New()
 	searchInput.Placeholder = "Search rows..."
 	searchInput.CharLimit = 50
-	searchInput.Width = 30
+	searchInput.SetWidth(30)
 
 	m := &TableDataModel{
 		Shared:      shared,
@@ -86,7 +86,7 @@ func (m *TableDataModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m *TableDataModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *TableDataModel) Update(msg tea.Msg) (viewModel, tea.Cmd) {
 	if !m.focused {
 		return m, nil
 	}
@@ -98,7 +98,7 @@ func (m *TableDataModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.showFullHelp = !m.showFullHelp
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.searching {
 			return m.handleSearchInput(msg)
 		}
@@ -119,7 +119,7 @@ func (m *TableDataModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m *TableDataModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *TableDataModel) handleSearchInput(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keyMap.Escape):
 		m.searching = false
@@ -138,7 +138,7 @@ func (m *TableDataModel) handleSearchInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
-func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *TableDataModel) handleNavigation(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keyMap.Back):
 		m.gPressed = false

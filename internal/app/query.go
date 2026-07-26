@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textarea"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textarea"
+	tea "charm.land/bubbletea/v2"
 )
 
 type QueryModel struct {
@@ -98,7 +98,7 @@ func (m *QueryModel) Init() tea.Cmd {
 	)
 }
 
-func (m *QueryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *QueryModel) Update(msg tea.Msg) (viewModel, tea.Cmd) {
 	if !m.focused {
 		return m, nil
 	}
@@ -116,7 +116,7 @@ func (m *QueryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return blinkMsg{}
 		}))
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.FocusOnInput {
 			return m.handleQueryInput(msg)
 		}
@@ -135,7 +135,7 @@ func (m *QueryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m *QueryModel) handleQueryInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *QueryModel) handleQueryInput(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keyMap.Escape):
 		return m, func() tea.Msg { return SwitchToTableListClearMsg{} }
@@ -153,7 +153,7 @@ func (m *QueryModel) handleQueryInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *QueryModel) handleResultsNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *QueryModel) handleResultsNavigation(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keyMap.Escape), key.Matches(msg, m.keyMap.Back):
 		m.gPressed = false

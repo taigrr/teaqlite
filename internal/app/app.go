@@ -7,9 +7,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	_ "modernc.org/sqlite" // Import SQLite driver
 )
 
@@ -29,6 +29,15 @@ func quoteIdentifier(identifier string) string {
 
 // Common message types
 type blinkMsg struct{}
+
+// viewModel is the interface implemented by each screen. Screens compose their
+// output as strings; the top-level Model wraps the active screen into a
+// tea.View for the v2 runtime.
+type viewModel interface {
+	Init() tea.Cmd
+	Update(tea.Msg) (viewModel, tea.Cmd)
+	View() string
+}
 
 // AppKeyMap defines the keybindings for the application
 type AppKeyMap struct {
@@ -82,7 +91,7 @@ type (
 // Model is the main application model
 type Model struct {
 	db          *sql.DB
-	currentView tea.Model
+	currentView viewModel
 	width       int
 	height      int
 	err         error
@@ -652,7 +661,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			v.Shared.Height = m.height
 		}
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch {
 		case key.Matches(msg, m.keyMap.Quit):
 			return m, tea.Quit
@@ -750,11 +759,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m *Model) View() string {
+func (m *Model) View() tea.View {
+	var content string
 	if m.err != nil {
-		return ErrorStyle.Render(fmt.Sprintf("Error: %v\n\nPress 'ctrl+c' to quit", m.err))
+		content = ErrorStyle.Render(fmt.Sprintf("Error: %v\n\nPress 'ctrl+c' to quit", m.err))
+	} else {
+		content = m.currentView.View()
 	}
-	return m.currentView.View()
+	v := tea.NewView(content)
+	v.AltScreen = true
+	return v
 }
 
 func (m *Model) Err() error {

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 type RowDetailModel struct {
@@ -76,7 +76,7 @@ func (m *RowDetailModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m *RowDetailModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *RowDetailModel) Update(msg tea.Msg) (viewModel, tea.Cmd) {
 	if !m.focused {
 		return m, nil
 	}
@@ -86,13 +86,13 @@ func (m *RowDetailModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.showFullHelp = !m.showFullHelp
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleNavigation(msg)
 	}
 	return m, nil
 }
 
-func (m *RowDetailModel) handleNavigation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *RowDetailModel) handleNavigation(msg tea.KeyMsg) (viewModel, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keyMap.Escape), key.Matches(msg, m.keyMap.Back):
 		m.gPressed = false
