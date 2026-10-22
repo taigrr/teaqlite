@@ -357,7 +357,8 @@ func (m *QueryModel) getTablePrimaryKeys(tableName string) []string {
 			continue
 		}
 
-		if pk == 1 {
+		// SQLite reports the 1-based position for every primary-key column.
+		if pk > 0 {
 			primaryKeys = append(primaryKeys, name)
 		}
 	}
