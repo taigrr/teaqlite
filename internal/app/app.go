@@ -208,7 +208,8 @@ func (s *SharedData) LoadTableData() error {
 			return err
 		}
 		s.Columns = append(s.Columns, name)
-		if pk == 1 {
+		// SQLite reports the 1-based position for every primary-key column.
+		if pk > 0 {
 			s.PrimaryKeys = append(s.PrimaryKeys, name)
 		}
 	}
@@ -411,7 +412,8 @@ func (s *SharedData) getTableInfo(tableName string) ([]string, []string, error) 
 			return nil, nil, err
 		}
 		columns = append(columns, name)
-		if pk == 1 {
+		// SQLite reports the 1-based position for every primary-key column.
+		if pk > 0 {
 			primaryKeys = append(primaryKeys, name)
 		}
 	}
