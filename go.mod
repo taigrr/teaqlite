@@ -7,7 +7,7 @@ toolchain go1.27.3
 require (
 	charm.land/bubbles/v2 v2.2.0
 	charm.land/bubbletea/v2 v2.1.1
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/lipgloss/v2 v2.1.1
 	github.com/charmbracelet/fang v1.0.0
 	github.com/spf13/cobra v1.10.2
 	modernc.org/sqlite v1.61.1
